@@ -2,10 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, Bell, Search, LogOut, MapPin } from "lucide-react";
 import { NAV } from "@/lib/nav";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 function Logo({ compact = false }: { compact?: boolean }) {
   return (
@@ -25,6 +27,16 @@ function Logo({ compact = false }: { compact?: boolean }) {
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    if (isSupabaseConfigured) {
+      await createClient().auth.signOut();
+    }
+    router.replace("/login");
+    router.refresh();
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="px-5 py-5">
@@ -63,7 +75,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
       <div className="border-t border-white/10 p-3">
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white">
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+        >
           <LogOut className="h-[18px] w-[18px]" /> Cerrar sesión
         </button>
       </div>

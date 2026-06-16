@@ -50,8 +50,10 @@ de depender de la plataforma VisitApp y corrigiendo las deficiencias detectadas.
 - ✅ Stack: **Supabase + Next.js 15 + Tailwind v4** (web), Expo (apps) — ver `docs/04`
 - ✅ Panel de administración (`apps/admin-web`): shell responsivo + 13 módulos, build OK
 - ✅ Cobertura módulos/botones documentada (`docs/07`) — enfoque residencial + corporativo/industrial
-- ⬜ Conectar Supabase (auth + RLS) sustituyendo datos mock
-- ⬜ Apps móviles `apps/guard` y `apps/resident` (Expo)
+- ✅ **Supabase conectado y en vivo** (`docs/08`): esquema + datos demo + **Auth + RLS**; dashboard
+  con datos reales; rutas protegidas por middleware; login funcional
+- ⬜ Apps móviles `apps/guard` y `apps/resident` (Expo) — especificadas en `docs/07`
+- ⬜ Migrar el resto de módulos a datos reales + acciones de escritura (modales en página)
 
 > Análisis generado mediante inspección de las APKs instaladas (MuMuPlayer) y revisión
 > del portal de administración en vivo. Ver historial de commits para el detalle.

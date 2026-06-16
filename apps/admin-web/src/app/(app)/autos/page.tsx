@@ -1,6 +1,6 @@
 import { Plus, ScanLine } from "lucide-react";
 import { Badge, Button, Card, CardHeader, CardTitle, PageHeader } from "@/components/ui";
-import { plates } from "@/lib/mock";
+import { getPlates } from "@/lib/data";
 import type { PlateList } from "@/lib/types";
 
 const LIST: Record<PlateList, { label: string; tone: "green" | "red" | "amber" | "slate" | "blue" }> = {
@@ -11,7 +11,8 @@ const LIST: Record<PlateList, { label: string; tone: "green" | "red" | "amber" |
   recuperate: { label: "Recuperación", tone: "blue" },
 };
 
-export default function AutosPage() {
+export default async function AutosPage() {
+  const plates = await getPlates();
   return (
     <>
       <PageHeader

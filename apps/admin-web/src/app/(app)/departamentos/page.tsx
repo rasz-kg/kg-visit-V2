@@ -1,6 +1,6 @@
 import { Plus, Phone, Home, Hammer, Trees, Building } from "lucide-react";
 import { Badge, Button, Card, CardBody, PageHeader } from "@/components/ui";
-import { houses } from "@/lib/mock";
+import { getHouses } from "@/lib/data";
 import { formatDateTime } from "@/lib/utils";
 import type { HouseKind } from "@/lib/types";
 
@@ -12,7 +12,8 @@ const KIND: Record<HouseKind, { label: string; icon: typeof Home; tone: "green" 
   rent: { label: "Renta", icon: Home, tone: "blue" },
 };
 
-export default function DepartamentosPage() {
+export default async function DepartamentosPage() {
+  const houses = await getHouses();
   const total = houses.length;
   const paid = houses.filter((h) => h.paid).length;
   const usingApp = houses.filter((h) => h.residents > 0).length;

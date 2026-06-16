@@ -2,17 +2,17 @@ import {
   Users, Building2, Wrench, UserCheck, Smartphone, DoorOpen, TrendingUp,
 } from "lucide-react";
 import { Card, CardBody, CardHeader, CardTitle, Badge, PageHeader } from "@/components/ui";
-import { visits } from "@/lib/mock";
+import { getDashboardStats, getVisits } from "@/lib/data";
 import { formatDateTime } from "@/lib/utils";
 
-const stats = [
-  { label: "Total de visitas", value: 128, icon: DoorOpen, tone: "text-brand-500" },
-  { label: "Domicilios", value: 8, icon: Building2, tone: "text-blue-500" },
-  { label: "Tipos de servicio", value: 7, icon: Wrench, tone: "text-violet-500" },
-  { label: "Visitantes", value: 60, icon: Users, tone: "text-emerald-500" },
-  { label: "Colonos activados", value: 8, icon: UserCheck, tone: "text-amber-500" },
-  { label: "Colonos usando la App", value: 8, icon: Smartphone, tone: "text-sky-500" },
-];
+const STAT_META = [
+  { key: "visits", label: "Total de visitas", icon: DoorOpen, tone: "text-brand-500" },
+  { key: "houses", label: "Domicilios", icon: Building2, tone: "text-blue-500" },
+  { key: "services", label: "Tipos de servicio", icon: Wrench, tone: "text-violet-500" },
+  { key: "visitors", label: "Visitantes", icon: Users, tone: "text-emerald-500" },
+  { key: "activated", label: "Colonos activados", icon: UserCheck, tone: "text-amber-500" },
+  { key: "usingApp", label: "Colonos usando la App", icon: Smartphone, tone: "text-sky-500" },
+] as const;
 
 const peak = [
   { h: "06", v: 4 }, { h: "08", v: 12 }, { h: "10", v: 9 }, { h: "12", v: 14 },
@@ -32,7 +32,10 @@ const statusTone: Record<string, "green" | "blue" | "amber" | "red" | "slate"> =
   inside: "green", authorized: "blue", pending: "amber", denied: "red", finished: "slate",
 };
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const [statsData, visits] = await Promise.all([getDashboardStats(), getVisits()]);
+  const stats = STAT_META.map((m) => ({ ...m, value: statsData[m.key] }));
+  const recent = visits.slice(0, 6);
   return (
     <>
       <PageHeader
@@ -118,7 +121,7 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {visits.map((v) => (
+              {recent.map((v) => (
                 <tr key={v.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
                   <td className="px-5 py-3">
                     <p className="font-medium text-slate-800">{v.title}</p>
