@@ -32,17 +32,26 @@ de depender de la plataforma VisitApp y corrigiendo las deficiencias detectadas.
 | [docs/04-plan-modernizacion.md](docs/04-plan-modernizacion.md) | Plan, tabla de stacks y arquitectura propuesta para V2 |
 | [docs/05-modelo-datos.md](docs/05-modelo-datos.md) | Modelo de datos completo (derivado de GraphQL) |
 | [docs/06-api-graphql.md](docs/06-api-graphql.md) | Catálogo de la API GraphQL del sistema V1 |
+| [docs/07-cobertura-modulos.md](docs/07-cobertura-modulos.md) | Cobertura módulo-por-módulo y botón-por-botón (V1→V2) |
 | [supabase/](supabase/) | Esquema SQL + RLS + datos demo para arrancar la V2 |
+| [apps/admin-web/](apps/admin-web/) | **Panel de administración V2** (Next.js 15 + Tailwind v4) |
 
 ## Estado
 
-🟡 **Fase 1 — Análisis y auditoría** (avanzada)
+✅ **Fase 1 — Análisis y auditoría** (completa)
 
-- ✅ Inventario de apps y backend · mapa del portal · auditoría de seguridad activa (no destructiva)
-- ✅ **Modelo de datos completo** recuperado por introspección de GraphQL
-- ✅ Esquema Postgres/Supabase + datos demo (`supabase/`)
-- ✅ Validación funcional de apps residente y caseta en MuMuPlayer (ambas operativas)
-- ⬜ Crawl pantalla-por-pantalla de formularios del portal (afinar campos UI) — siguiente
+- Inventario de apps y backend · mapa del portal · auditoría de seguridad activa (no destructiva)
+- **Modelo de datos completo** recuperado por introspección de GraphQL
+- Esquema Postgres/Supabase + datos demo (`supabase/`)
+- Validación funcional de apps residente y caseta en MuMuPlayer
+
+🟡 **Fase 2 — Construcción** (en curso)
+
+- ✅ Stack: **Supabase + Next.js 15 + Tailwind v4** (web), Expo (apps) — ver `docs/04`
+- ✅ Panel de administración (`apps/admin-web`): shell responsivo + 13 módulos, build OK
+- ✅ Cobertura módulos/botones documentada (`docs/07`) — enfoque residencial + corporativo/industrial
+- ⬜ Conectar Supabase (auth + RLS) sustituyendo datos mock
+- ⬜ Apps móviles `apps/guard` y `apps/resident` (Expo)
 
 > Análisis generado mediante inspección de las APKs instaladas (MuMuPlayer) y revisión
 > del portal de administración en vivo. Ver historial de commits para el detalle.

@@ -1,0 +1,108 @@
+// Modelo de dominio KG-Visit V2 (derivado de docs/05-modelo-datos.md)
+// Tipos compartidos por toda la app web. Alineados al esquema en /supabase.
+
+export type Role = "admin" | "supervisor" | "staff" | "guard" | "resident";
+
+export type HouseKind = "land" | "construction" | "build" | "inhabited" | "rent";
+
+export type VisitKind = "visitor" | "employee" | "service" | "resident" | "provider" | "event";
+
+export type VisitStatus =
+  | "pending"
+  | "authorized"
+  | "denied"
+  | "inside"
+  | "finished"
+  | "canceled"
+  | "expired";
+
+export type PlateList = "none" | "blacklist" | "graylist" | "report" | "recuperate";
+
+/** Modo de operación del tenant: define etiquetas/flujos (residencial vs corporativo). */
+export type TenantMode = "residential" | "corporate" | "industrial";
+
+export interface House {
+  id: string;
+  address: string;
+  cluster?: string;
+  phone?: string;
+  kind: HouseKind;
+  paid: boolean;
+  defaulter: boolean;
+  receivingVisits: boolean;
+  residents: number;
+  updatedAt: string;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  username?: string;
+  email?: string;
+  phone?: string;
+  role: Role;
+  houseId?: string;
+  status: boolean;
+}
+
+export interface Plate {
+  id: string;
+  number: string;
+  state?: string;
+  brand?: string;
+  model?: string;
+  color?: string;
+  list: PlateList;
+  resident: boolean;
+}
+
+export interface Visit {
+  id: string;
+  folio: string;
+  kind: VisitKind;
+  status: VisitStatus;
+  title: string; // "Visita familiar", "Visita de CFE", etc.
+  who: string; // nombre del visitante / conductor / empresa
+  houseAddress: string;
+  site?: string; // sede (corporativo)
+  plate?: string;
+  arriveDate?: string;
+  leaveDate?: string;
+  createdByGuard?: boolean;
+  walking?: boolean;
+}
+
+export interface Notice {
+  id: string;
+  title: string;
+  kind: "general" | "house" | "emergency" | "payment";
+  body: string;
+  createdAt: string;
+}
+
+export interface Reservation {
+  id: string;
+  space: string;
+  user: string;
+  start: string;
+  end: string;
+  status: "pending" | "authorized" | "denied" | "canceled" | "finished";
+  price: number;
+}
+
+export interface Ticket {
+  id: string;
+  subject: string;
+  category: string;
+  user: string;
+  status: "open" | "in_progress" | "resolved" | "closed";
+  kind: "queja" | "sugerencia";
+  createdAt: string;
+}
+
+export interface ReportDef {
+  id: string;
+  name: string;
+  description: string;
+  group: string;
+}
