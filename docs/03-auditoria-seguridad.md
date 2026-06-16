@@ -9,15 +9,21 @@
 
 ## Resumen de hallazgos
 
+> **Actualización (verificación activa autorizada, no destructiva):** varios hallazgos se
+> confirmaron vía `curl`/introspección sin modificar datos. El bucket S3 resultó **no** público.
+
 | # | Severidad | Estado | Hallazgo |
 |---|-----------|--------|----------|
-| V-01 | 🔴 Alta | Confirmado | App de caseta usa **HTTP en texto plano** (`http://tablets.visitapp.io/api/v1`) |
+| V-08 | 🔴 Alta | **Confirmado** | **Introspección de GraphQL habilitada en producción** → todo el esquema (modelo + operaciones) es público sin autenticación |
+| V-01 | 🔴 Alta | **Confirmado** | App de caseta usa **HTTP en texto plano** (`http://tablets.visitapp.io`); responde 200 sin redirigir a HTTPS |
 | V-02 | 🟠 Media-Alta | Por verificar | Posible **IDOR** en rutas `/root/houses/{id}/...` con IDs enteros secuenciales |
-| V-03 | 🟠 Media-Alta | Por verificar | Bucket S3 `mega-visitapp.s3.amazonaws.com/public/` potencialmente público / enumerable |
+| V-10 | 🟠 Media | **Confirmado** | **Sin HSTS ni CSP** en ningún host; cookie `_visitapp_key` **sin `Secure` ni `SameSite`** |
+| V-09 | 🟠 Media | **Confirmado** | **nginx 1.10.3 (Ubuntu)** — versión de ~2017, fuera de soporte / sin parches |
 | V-04 | 🟠 Media | Confirmado | **Dependencia total de un tercero** (VisitApp.io); sin código fuente, sin IaC, sin backups propios |
 | V-05 | 🟡 Media | Confirmado | Sesión de **Administrador General** persistente en navegador (sin expiración aparente) |
-| V-06 | 🟡 Baja | Por verificar | Versionado de API inconsistente (`v1` y `v2-7-0` conviviendo); posibles endpoints legacy sin protección |
-| V-07 | 🟢 Calidad | Confirmado | Ruta con typo `/notces` (debería ser `/notices`); inconsistencias menores de UX |
+| V-06 | 🟡 Baja | Por verificar | Versionado de API inconsistente (`v1` y `v2-7-0`); posibles endpoints legacy sin protección |
+| V-03 | 🟢 Baja | **Mitigado** | Bucket S3: **listado denegado (AccessDenied)** y objeto `/public/*` → **403**; no es público |
+| V-07 | 🟢 Calidad | Confirmado | Ruta con typo `/notces`; inconsistencias menores de UX |
 
 ## Detalle
 
@@ -56,6 +62,26 @@ La sesión de administrador permanece activa de forma prolongada en el navegador
 ### V-06 — Superficie de API legacy 🟡
 Conviven `/api/v1` y `/api/v2-7-0`. Endpoints antiguos suelen quedar sin las protecciones nuevas.
 **Recomendación V2:** una sola versión soportada, deprecación explícita, gateway con rate-limiting.
+
+### V-08 — Introspección de GraphQL abierta en producción 🔴
+`POST administracion.visitapp.io/api/v1` responde a la query `__schema` sin autenticación,
+exponiendo **todo el modelo de datos y todas las operaciones** (~90 queries, ~110 mutations).
+Esto facilita enormemente el reconocimiento de un atacante (incluido el mapeo de mutations
+sensibles como `passwordUserForAdmin`, `blacklistPlate`, `deleteHouseForAdmin`).
+**Recomendación V2:** deshabilitar introspección en producción, exigir auth en todo el endpoint,
+persisted queries / allowlist, rate-limiting y profundidad/complejidad máxima de query.
+
+### V-09 — Servidor web obsoleto 🟠
+`Server: nginx/1.10.3 (Ubuntu)` (≈2017, Ubuntu 16.04). Fuera de soporte: vulnerabilidades
+conocidas sin parchear y TLS/ciphers anticuados.
+**Recomendación V2:** infraestructura administrada/actualizada (o nginx LTS reciente), parches automáticos.
+
+### V-10 — Cabeceras de seguridad y cookie 🟠
+No hay `Strict-Transport-Security` (HSTS) ni `Content-Security-Policy` (CSP) en ninguno de los
+hosts. La cookie de sesión `_visitapp_key` es `HttpOnly` (bien) pero **carece de `Secure` y
+`SameSite`** → puede viajar por HTTP (ver V-01) y es más expuesta a CSRF.
+**Recomendación V2:** HSTS con preload, CSP estricta, cookies `Secure`+`SameSite=Lax/Strict`,
+y `cleartextTrafficPermitted=false` en las apps.
 
 ## Vulnerabilidades a revisar en la fase intrusiva (requiere autorización)
 - AuthZ por objeto (IDOR) en todas las rutas `/root/*` y `/admin/*`.

@@ -35,6 +35,29 @@ Monorepo (este repo)
 > Stacks alternativos posibles: mantener Laravel para el backend, o backend Node (NestJS).
 > Ver "Decisiones abiertas".
 
+## Tabla comparativa de stacks
+
+Prioridad del cliente: **estético, moderno y reactivo**. Evaluación (⭐ = mejor):
+
+| Capa | Opción A — **Recomendada** | Opción B | Opción C |
+|------|---------------------------|----------|----------|
+| **Backend/DB** | **Supabase** (Postgres + RLS + Auth + Storage + Realtime) ⭐ | Laravel + Postgres | NestJS + Prisma + Postgres |
+| **API** | PostgREST + Edge Functions (Deno) auto-generadas ⭐ | REST/GraphQL manual | GraphQL/REST manual |
+| **Web admin** | **Next.js 15** (App Router, RSC) en Vercel ⭐ | Blade/Livewire | Next.js |
+| **UI** | **Tailwind + shadcn/ui + Radix** + Framer Motion ⭐ | Bootstrap | MUI |
+| **Estado/datos** | **TanStack Query** + Supabase Realtime (reactivo) ⭐ | Inertia | TanStack Query |
+| **Móvil** | **Expo (React Native)** — residente + caseta ⭐ | nativo | Flutter |
+| **Tiempo a producción** | Rápido ⭐ | Medio | Medio-lento |
+| **Reactividad (tiempo real)** | Nativa (suscripciones Postgres) ⭐ | Requiere WebSockets manual | Requiere Gateway WS |
+| **Control de IDOR/seguridad** | RLS por fila ⭐ | Policies manuales | Guards manuales |
+| **Costo operativo inicial** | Bajo (free tier amplio) ⭐ | Servidor propio | Servidor propio |
+
+**Recomendación: Opción A (Supabase + Next.js + Expo).** Da lo más "estético + reactivo"
+con menor esfuerzo: realtime nativo, RLS que elimina el IDOR de raíz, UI moderna con
+shadcn/ui + animaciones, y despliegue en Vercel. El esquema en `supabase/` ya está alineado a esto.
+
+> **Fuera de alcance de V2:** la app `com.kauilgroup.evr` (producto distinto). No se analiza ni se recrea.
+
 ## Fases
 
 - **Fase 1 — Análisis y auditoría** *(en curso)*

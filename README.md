@@ -29,11 +29,19 @@ de depender de la plataforma VisitApp y corrigiendo las deficiencias detectadas.
 | [docs/01-sistema-actual.md](docs/01-sistema-actual.md) | Funcionalidad y módulos del sistema V1 |
 | [docs/02-arquitectura.md](docs/02-arquitectura.md) | Arquitectura técnica actual (apps, backend, infra) |
 | [docs/03-auditoria-seguridad.md](docs/03-auditoria-seguridad.md) | Hallazgos de seguridad y vulnerabilidades |
-| [docs/04-plan-modernizacion.md](docs/04-plan-modernizacion.md) | Plan y arquitectura propuesta para V2 |
+| [docs/04-plan-modernizacion.md](docs/04-plan-modernizacion.md) | Plan, tabla de stacks y arquitectura propuesta para V2 |
+| [docs/05-modelo-datos.md](docs/05-modelo-datos.md) | Modelo de datos completo (derivado de GraphQL) |
+| [docs/06-api-graphql.md](docs/06-api-graphql.md) | Catálogo de la API GraphQL del sistema V1 |
+| [supabase/](supabase/) | Esquema SQL + RLS + datos demo para arrancar la V2 |
 
 ## Estado
 
-🟡 **Fase 1 — Análisis y auditoría** (en curso)
+🟡 **Fase 1 — Análisis y auditoría** (avanzada)
+
+- ✅ Inventario de apps y backend · mapa del portal · auditoría de seguridad activa (no destructiva)
+- ✅ **Modelo de datos completo** recuperado por introspección de GraphQL
+- ✅ Esquema Postgres/Supabase + datos demo (`supabase/`)
+- ⬜ Captura de flujos UI de las apps (residente y caseta) en MuMuPlayer
 
 > Análisis generado mediante inspección de las APKs instaladas (MuMuPlayer) y revisión
 > del portal de administración en vivo. Ver historial de commits para el detalle.

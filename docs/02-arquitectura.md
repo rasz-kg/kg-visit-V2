@@ -14,8 +14,8 @@
                           \            │            /
                            ▼           ▼           ▼
                         ┌──────────────────────────────┐
-                        │   Plataforma VisitApp (PHP)   │
-                        │   + DB                        │
+                        │ VisitApp — Phoenix/Elixir     │
+                        │ Absinthe GraphQL + Postgres   │
                         └───────────────┬──────────────┘
                                         ▼
                           mega-visitapp.s3.amazonaws.com  (imágenes: fotos, placas)
@@ -34,14 +34,24 @@
   `html2canvas`, `purify.es`, etc.). minSdk 22, targetSdk 34.
 
 ### Portal de administración
-- **`admin.kg-visit.com`** — aplicación server-rendered estilo **Laravel** (rutas
-  `/admin/...`, `/root/...`, Blade). Apunta al back-office de `administracion.visitapp.io`.
+- **`admin.kg-visit.com`** — aplicación server-rendered en **Phoenix (Elixir)** (rutas
+  `/admin/...`, `/root/...`). Cookie de sesión firmada `_visitapp_key` (formato Plug/Phoenix,
+  ETF Erlang). Apunta al back-office de `administracion.visitapp.io`.
+
+> **Corrección:** la primera hipótesis fue Laravel; la cookie `_visitapp_key=SFMyNTY...`
+> (Base64 de `HS256` + términos Erlang) confirma **Phoenix/Elixir**.
 
 ### Backend / API
-- **`administracion.visitapp.io`** — API principal (residentes) y back-office admin.
-  Versionado: `/api/v1`, `/api/v2-7-0`.
-- **`tablets.visitapp.io`** — API para la app de caseta (tablets). ⚠️ Referenciada por **HTTP**.
+- **GraphQL (Absinthe sobre Phoenix)**. Endpoint `POST /api/v1` (y `/api/v2-7-0`).
+  `RootQueryType` (~90 queries) y `RootMutationType` (~110 mutations). Ver `06-api-graphql.md`.
+- **`administracion.visitapp.io`** — API principal (residentes/admin) y back-office.
+- **`tablets.visitapp.io`** — API para la app de caseta (tablets). ⚠️ Servida por **HTTP** (confirmado).
 - **`caseta.visitapp.io`** — assets/recursos de caseta.
+- **Multi-tenant**: entidades `Residential` (configuración por comunidad), `Instance`/`InstanceLog`
+  (instancias/tenants), parámetros `tenant`/`tennant` en queries.
+- **Integraciones de hardware/terceros** (según flags de `Residential`): Hikvision, ZKTeco,
+  Alocity (reconocimiento facial/control de acceso), LPR (lectura de placas), REPUVE
+  (registro vehicular MX), Airbnb.
 
 ### Almacenamiento
 - **AWS S3** — `mega-visitapp.s3.amazonaws.com`, con prefijo `/public/` para imágenes
