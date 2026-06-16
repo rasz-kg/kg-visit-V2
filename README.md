@@ -41,7 +41,8 @@ de depender de la plataforma VisitApp y corrigiendo las deficiencias detectadas.
 - ✅ Inventario de apps y backend · mapa del portal · auditoría de seguridad activa (no destructiva)
 - ✅ **Modelo de datos completo** recuperado por introspección de GraphQL
 - ✅ Esquema Postgres/Supabase + datos demo (`supabase/`)
-- ⬜ Captura de flujos UI de las apps (residente y caseta) en MuMuPlayer
+- ✅ Validación funcional de apps residente y caseta en MuMuPlayer (ambas operativas)
+- ⬜ Crawl pantalla-por-pantalla de formularios del portal (afinar campos UI) — siguiente
 
 > Análisis generado mediante inspección de las APKs instaladas (MuMuPlayer) y revisión
 > del portal de administración en vivo. Ver historial de commits para el detalle.
