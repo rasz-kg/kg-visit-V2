@@ -43,3 +43,79 @@ export function formatDate(iso?: string | null): string {
     day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
   });
 }
+
+/* --------------------------------- Avisos -------------------------------- */
+export interface NoticeItem { id: string; kind: string; description: string; createdAt: string }
+
+export async function getNotices(): Promise<NoticeItem[]> {
+  const res = await supabase
+    .from("notices")
+    .select("id,kind,description,created_at")
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  const rows = (res.data ?? []) as unknown as { id: string; kind: string; description: string; created_at: string }[];
+  return res.error ? [] : rows.map((n) => ({ id: n.id, kind: n.kind, description: n.description, createdAt: n.created_at }));
+}
+
+/* --------------------------- Catálogos del wizard ------------------------ */
+export interface Catalog { id: string; name: string; plates?: boolean; hasDetails?: boolean }
+
+export async function getTransports(): Promise<Catalog[]> {
+  const res = await supabase.from("transports").select("id,name,plates").eq("status", true).order("name");
+  const rows = (res.data ?? []) as unknown as { id: string; name: string; plates: boolean }[];
+  return res.error ? [] : rows.map((t) => ({ id: t.id, name: t.name, plates: t.plates }));
+}
+
+export async function getServices(): Promise<Catalog[]> {
+  const res = await supabase.from("services").select("id,name,has_details").eq("status", true).order("name");
+  const rows = (res.data ?? []) as unknown as { id: string; name: string; has_details: boolean }[];
+  return res.error ? [] : rows.map((s) => ({ id: s.id, name: s.name, hasDetails: s.has_details }));
+}
+
+/* ------------------------- Crear visita (residente) ---------------------- */
+export interface NewVisitInput {
+  kind: "visitor" | "service";
+  subject: string;
+  visitorName?: string; // para kind=visitor
+  serviceId?: string | null; // para kind=service
+  transportId?: string | null;
+  validity: number; // horas
+  dueDate: string; // ISO
+}
+interface ProfileLike {
+  id: string; residentialId: string | null; houseId: string | null;
+}
+
+// Crea (si aplica) un visitante y la visita en estado pendiente. RLS (0006) la acota a la casa del residente.
+export async function createResidentVisit(p: NewVisitInput, profile: ProfileLike): Promise<{ error?: string }> {
+  if (!profile.residentialId || !profile.houseId) return { error: "Tu perfil no tiene un domicilio asignado." };
+  let visitorId: string | null = null;
+  if (p.kind === "visitor") {
+    if (!p.visitorName?.trim()) return { error: "Indica el nombre del visitante." };
+    const { data, error } = await supabase
+      .from("visitors")
+      .insert({ residential_id: profile.residentialId, name: p.visitorName.trim() } as never)
+      .select("id")
+      .maybeSingle();
+    if (error) return { error: error.message };
+    visitorId = (data as { id: string } | null)?.id ?? null;
+  }
+  const payload = {
+    residential_id: profile.residentialId,
+    house_id: profile.houseId,
+    kind: p.kind,
+    status: "pending",
+    subject: p.subject.trim() || null,
+    visitor_id: visitorId,
+    service_id: p.kind === "service" ? p.serviceId ?? null : null,
+    transport_id: p.transportId ?? null,
+    validity: p.validity,
+    due_date: p.dueDate,
+    arrive_date: p.dueDate,
+    created_by: profile.id,
+  };
+  const { error } = await supabase.from("visits").insert(payload as never);
+  if (error) return { error: error.message };
+  return {};
+}

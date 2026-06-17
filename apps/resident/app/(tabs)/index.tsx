@@ -1,22 +1,24 @@
 import * as React from "react";
-import { View, Text, ScrollView, StyleSheet } from "react-native";
+import { View, Text, ScrollView, StyleSheet, Pressable, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter, type Href } from "expo-router";
 import { Bell, Users, Megaphone, Briefcase, DoorOpen, CalendarDays } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { colors, radius, spacing } from "@/lib/theme";
 
-const CARDS = [
+const CARDS: { key: string; label: string; Icon: typeof Bell; href?: Href }[] = [
   { key: "notificaciones", label: "Notificaciones", Icon: Bell },
   { key: "visitantes", label: "Visitantes", Icon: Users },
-  { key: "avisos", label: "Avisos", Icon: Megaphone },
+  { key: "avisos", label: "Avisos", Icon: Megaphone, href: "/avisos" },
   { key: "staff", label: "Staff", Icon: Briefcase },
-  { key: "visitas", label: "Visitas", Icon: DoorOpen },
+  { key: "visitas", label: "Visitas", Icon: DoorOpen, href: "/(tabs)/visitas" },
   { key: "eventos", label: "Eventos", Icon: CalendarDays },
 ];
 
 export default function HomeScreen() {
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
@@ -25,11 +27,15 @@ export default function HomeScreen() {
         <Text style={styles.house}>{profile?.houseAddress ?? "Sin domicilio"} · {profile?.residentialName ?? ""}</Text>
       </View>
       <ScrollView contentContainerStyle={styles.grid}>
-        {CARDS.map(({ key, label, Icon }) => (
-          <View key={key} style={styles.card}>
+        {CARDS.map(({ key, label, Icon, href }) => (
+          <Pressable
+            key={key}
+            style={styles.card}
+            onPress={() => (href ? router.push(href) : Alert.alert(label, "Disponible próximamente."))}
+          >
             <View style={styles.iconWrap}><Icon color={colors.brand} size={24} /></View>
             <Text style={styles.cardLabel}>{label}</Text>
-          </View>
+          </Pressable>
         ))}
       </ScrollView>
     </View>

@@ -13,8 +13,13 @@ clones white-label de **VisitApp**:
 | Pieza | V1 (producción, sobre GraphQL VisitApp) | V2 (este repo, sobre Supabase) | % clonado |
 |-------|------------------------------------------|--------------------------------|-----------|
 | **Portal Admin** | web VisitApp admin | `apps/admin-web` (Next.js) | **~62%** funcional, en vivo |
-| **App Residente** | `com.kgvisit.app` v1.1 (instalada, operativa) | `apps/resident` (Expo) | **0% código** — solo spec (`docs/12`) + scaffold inicial |
-| **App Caseta** | `com.kgvisit.guard` v1.0.0 (instalada, operativa) | `apps/guard` (Expo) | **0% código** — solo spec (`docs/13`) |
+| **App Residente** | `com.kgvisit.app` v1.1 (instalada, operativa) | `apps/resident` (Expo) | **slice funcional**: login, tabs, visitas (lectura real), **Nueva visita (wizard)**, Avisos, Pánico |
+| **App Caseta** | `com.kgvisit.guard` v1.0.0 (instalada, operativa) | `apps/guard` (Expo) | **slice funcional**: login, selección de caseta, listado del día, acciones de estatus |
+
+> **Backend desbloqueado (✅ aplicado y verificado en vivo):** migración `0006` aplicada; cuentas de auth
+> demo creadas para residente (`jperez@kg-demo.mx`) y guardia (`guardia@kg-demo.mx`), password `KgVisit2026!`.
+> Verificado: login OK por API; el residente solo ve las visitas de SU casa (1 de 2); el admin sigue
+> viendo todas (sin regresión).
 
 > **Conclusión:** el clon del **portal admin** va adelantado y en vivo; las **apps móviles** están
 > documentadas exhaustivamente pero **sin código aún**. El backend Supabase ya cubre la mayor parte del
@@ -59,9 +64,13 @@ referencia visual fiel de a dónde deben llegar las apps Expo.
 - **Estado:** 0% código.
 
 ---
-## 4. 🚩 BLOQUEANTE #1 — Auth y RLS están hechos solo para el admin
+## 4. ✅ RESUELTO — Auth y RLS por rol (era el bloqueante #1)
 
-El backend autentica y autoriza pensado **únicamente para el portal admin**. Verificado en vivo:
+> **Estado:** la migración `0006_app_roles_rls.sql` se **aplicó a producción** y se crearon las cuentas de
+> auth demo (residente/guardia). Verificado: login por API + RLS (residente acotado a su casa, admin sin
+> regresión). Lo de abajo documenta el problema original y la solución.
+
+El backend autenticaba y autorizaba pensado **únicamente para el portal admin**. Verificado en vivo:
 
 ```sql
 current_residential_id() -- residential del usuario con auth_user_id = auth.uid()  (sirve a cualquier rol)

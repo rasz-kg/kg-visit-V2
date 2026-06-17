@@ -1,6 +1,8 @@
 import * as React from "react";
-import { View, Text, FlatList, StyleSheet, RefreshControl, ActivityIndicator } from "react-native";
+import { View, Text, FlatList, StyleSheet, RefreshControl, ActivityIndicator, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter, useFocusEffect } from "expo-router";
+import { Plus } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { getVisits, formatDate, type VisitItem } from "@/lib/data";
 import { colors, radius, spacing, VISIT_STATUS } from "@/lib/theme";
@@ -8,6 +10,7 @@ import { colors, radius, spacing, VISIT_STATUS } from "@/lib/theme";
 export default function VisitasScreen() {
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [visits, setVisits] = React.useState<VisitItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
@@ -19,7 +22,8 @@ export default function VisitasScreen() {
     setRefreshing(false);
   }, [profile?.houseId]);
 
-  React.useEffect(() => { load(); }, [load]);
+  // Recarga al volver del wizard de Nueva visita.
+  useFocusEffect(React.useCallback(() => { load(); }, [load]));
 
   return (
     <View style={styles.root}>
@@ -53,6 +57,9 @@ export default function VisitasScreen() {
           }}
         />
       )}
+      <Pressable style={styles.fab} onPress={() => router.push("/nueva-visita")}>
+        <Plus color="#fff" size={28} />
+      </Pressable>
     </View>
   );
 }
@@ -70,4 +77,10 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 12, fontWeight: "600" },
   meta: { color: colors.textMuted, fontSize: 13, marginTop: 6 },
   metaFaint: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
+  fab: {
+    position: "absolute", right: spacing.lg, bottom: spacing.lg,
+    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand,
+    alignItems: "center", justifyContent: "center", elevation: 4,
+    shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+  },
 });
