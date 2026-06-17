@@ -1,59 +1,87 @@
 # KG-Visit V2
 
-Modernización de **KG-Visit**, sistema de control de acceso y gestión de visitantes
-para fraccionamientos / comunidades residenciales de **Kauil Group**.
+Reconstrucción **moderna, propia y configurable** de **KG-Visit** — sistema de control de
+acceso y gestión de visitantes para comunidades residenciales, corporativas e industriales
+de **Kauil Group**. Clona y **supera** a la plataforma original (white-label de *VisitApp*),
+dejando de depender de infraestructura de terceros.
 
-Este repositorio contiene el análisis del sistema actual (V1), la auditoría de
-seguridad, y el diseño + implementación de la nueva versión modernizada (V2).
+## 🌐 En vivo (emulador para revisar cambios)
+- **Panel de administración:** https://admin-web-lac-six.vercel.app
+- **Acceso demo:** `admin@kg-demo.mx` / `KgVisit2026!` *(cambiar antes de producción)*
+- **Backend:** Supabase `kg-visit-V2` (Postgres 17 + Auth + RLS) — ver `docs/08`.
 
-## Contexto
+> Cada push se redespliega y puede revisarse en el emulador.
 
-KG-Visit está actualmente desplegado como un *white-label* sobre la plataforma
-**VisitApp** (`visitapp.io`). No existe código fuente propio en control de versiones;
-el sistema V1 vive únicamente como:
+## Arquitectura V2
+- **Stack:** Next.js 16 (App Router, RSC) + React 19 + Tailwind v4 + @supabase/ssr · Vercel.
+- **Backend:** Supabase (Postgres, Auth email/password, **RLS multi-tenant** por `residential_id`).
+- **Seguridad:** UUID (anti-IDOR), RLS por fila, middleware de sesión, HTTPS; Next 16 (parchea CVE-2025-29927).
+- **Motor declarativo:** cada entidad se define una vez (`lib/entities.ts`) y la ruta genérica
+  `/m/[entity]` renderiza lista + alta/edición/baja/estatus. DRY y mantenible (mejor que las
+  páginas hechas a mano del original).
+- **Personalización por administrador:** cada tenant configura módulos (147 flags) y los **campos
+  del formulario de visita** (`visit_field_configs`: qué campos, tipo, requerido, visible, nº de fotos).
 
-- **Portal web de administración** — `https://admin.kg-visit.com` (Laravel, server-rendered)
-- **App de residentes (colonos)** — `com.kgvisit.app` v1.1 (React Native)
-- **App de caseta / guardia** — `com.kgvisit.guard` v1.0.0 (React Native)
-- **App EVR** — `com.kauilgroup.evr` v1.0 (Capacitor/Ionic) — producto relacionado
-- **Backend / API** — `administracion.visitapp.io`, `tablets.visitapp.io` (VisitApp)
-- **Almacenamiento** — `mega-visitapp.s3.amazonaws.com` (AWS S3)
+## Estado por módulo (admin)
+| Módulo | Estado |
+|--------|--------|
+| Dashboard (KPIs, horas pico, tipos de visita) | ✅ datos reales |
+| Visitas (filtros + acciones: autorizar/dar acceso/salida/reportar/paquetería) | ✅ funcional |
+| Departamentos (CRUD: alta/edición/moroso/eliminar) | ✅ funcional |
+| Usuarios (hub + 5 secciones, CRUD real) | ✅ funcional |
+| Autos y placas | ✅ datos reales |
+| Motor `/m/[entity]` — servicios, transportes, proveedores, amenidades, casetas, cámaras, etiquetas, categorías, incidentes | ✅ CRUD |
+| Reportes (hub + 14 sub-reportes con datos reales y rango de fechas) | ✅ funcional |
+| Configuración (56 flags + modo) + editor de **campos de visita** | ✅ funcional |
+| Avisos · Sugerencias · Lista negra · Sedes | 🟡 UI (datos por conectar) |
 
-El objetivo de V2 es **recrear el sistema de forma independiente y moderna**, dejando
-de depender de la plataforma VisitApp y corrigiendo las deficiencias detectadas.
+## Documentación (`docs/`)
+| # | Documento |
+|---|-----------|
+| 01 | Sistema actual (V1) |
+| 02 | Arquitectura técnica V1 (Phoenix/Elixir + Absinthe GraphQL) |
+| 03 | Auditoría de seguridad (pentest no destructivo) |
+| 04 | Plan de modernización + tabla de stacks |
+| 05 | Modelo de datos completo (introspección GraphQL) |
+| 06 | Catálogo de API GraphQL (90 queries / 110 mutations) |
+| 07 | Cobertura de módulos y botones |
+| 08 | Backend Supabase (en vivo) |
+| 09 | Blueprint de apps móviles (probadas en MuMu) |
+| 10 | Cobertura de datos (42 entidades, gaps + DDL) |
+| 11 | Rutas del admin original (86 rutas) |
+| 12 | App residente (22 pantallas) |
+| 13 | App caseta (16 pantallas) |
+| 14 | Personalización por admin (147 opciones + DDL) |
+| 15 | Híbrido configurable (apps) |
+| 16 | Auditoría de salud de rutas V2 |
+| 17 | Gaps vs portal original |
 
-## Estructura del repositorio
+## Estructura del repo
+```
+apps/admin-web/        Panel de administración (Next.js 16)
+  src/app/(app)/       Rutas con shell (sidebar + topbar)
+  src/app/(app)/m/[entity]/   Motor declarativo de CRUD
+  src/lib/             entities, crud, data, supabase, types, nav, sections
+supabase/
+  migrations/          0001 esquema · 0002 RLS · 0003 hardening · 0004 roles · 0005 campos config
+  seed.sql · policies.sql
+docs/                  01–17 (análisis, auditorías, specs)
+```
 
-| Documento | Contenido |
-|-----------|-----------|
-| [docs/01-sistema-actual.md](docs/01-sistema-actual.md) | Funcionalidad y módulos del sistema V1 |
-| [docs/02-arquitectura.md](docs/02-arquitectura.md) | Arquitectura técnica actual (apps, backend, infra) |
-| [docs/03-auditoria-seguridad.md](docs/03-auditoria-seguridad.md) | Hallazgos de seguridad y vulnerabilidades |
-| [docs/04-plan-modernizacion.md](docs/04-plan-modernizacion.md) | Plan, tabla de stacks y arquitectura propuesta para V2 |
-| [docs/05-modelo-datos.md](docs/05-modelo-datos.md) | Modelo de datos completo (derivado de GraphQL) |
-| [docs/06-api-graphql.md](docs/06-api-graphql.md) | Catálogo de la API GraphQL del sistema V1 |
-| [docs/07-cobertura-modulos.md](docs/07-cobertura-modulos.md) | Cobertura módulo-por-módulo y botón-por-botón (V1→V2) |
-| [supabase/](supabase/) | Esquema SQL + RLS + datos demo para arrancar la V2 |
-| [apps/admin-web/](apps/admin-web/) | **Panel de administración V2** (Next.js 15 + Tailwind v4) |
+## Correr en local
+```bash
+cd apps/admin-web
+cp .env.example .env.local   # añade URL + anon key de Supabase
+npm install
+npm run dev                  # http://localhost:3000  (login requerido)
+```
 
-## Estado
+## Roadmap (hacia el clon completo + "mejor que el original")
+1. **Apps móviles Expo** — residente (21 pantallas) + caseta (16), superset configurable que consume los flags del tenant.
+2. **Entidades con relaciones** en el motor — Eventos, Reservaciones, Empleados domésticos (selectores FK).
+3. Conectar Avisos / Lista negra / Sugerencias a datos reales + acciones.
+4. Aplicar DDL de gaps (`docs/10`) para cobertura 100% de lo almacenable.
+5. Endurecimiento final + pentest autorizado + observabilidad.
 
-✅ **Fase 1 — Análisis y auditoría** (completa)
-
-- Inventario de apps y backend · mapa del portal · auditoría de seguridad activa (no destructiva)
-- **Modelo de datos completo** recuperado por introspección de GraphQL
-- Esquema Postgres/Supabase + datos demo (`supabase/`)
-- Validación funcional de apps residente y caseta en MuMuPlayer
-
-🟡 **Fase 2 — Construcción** (en curso)
-
-- ✅ Stack: **Supabase + Next.js 15 + Tailwind v4** (web), Expo (apps) — ver `docs/04`
-- ✅ Panel de administración (`apps/admin-web`): shell responsivo + 13 módulos, build OK
-- ✅ Cobertura módulos/botones documentada (`docs/07`) — enfoque residencial + corporativo/industrial
-- ✅ **Supabase conectado y en vivo** (`docs/08`): esquema + datos demo + **Auth + RLS**; dashboard
-  con datos reales; rutas protegidas por middleware; login funcional
-- ⬜ Apps móviles `apps/guard` y `apps/resident` (Expo) — especificadas en `docs/07`
-- ⬜ Migrar el resto de módulos a datos reales + acciones de escritura (modales en página)
-
-> Análisis generado mediante inspección de las APKs instaladas (MuMuPlayer) y revisión
-> del portal de administración en vivo. Ver historial de commits para el detalle.
+---
+*Construido con Claude Code. Análisis, esquema, motor y despliegue documentados en `docs/` y en el historial de commits.*
