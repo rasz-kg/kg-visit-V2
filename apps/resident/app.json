@@ -17,7 +17,10 @@
       "bundleIdentifier": "com.kgvisit.app.v2",
       "supportsTablet": true
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      "expo-asset"
+    ],
     "extra": {
       "supabaseUrl": "https://ljzzuwltgezvwpelavdz.supabase.co",
       "supabaseAnonKey": "sb_publishable_L8oRM36wh6xG7SHYYERxAQ_aahxXPeG"
