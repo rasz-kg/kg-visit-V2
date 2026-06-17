@@ -11,7 +11,7 @@ Leyenda de estado V2 (web admin): ✅ construido · 🟡 stub navegable · 📱 
 |-----------|--------------------------|-----|
 | Dashboard | KPIs (visitas, domicilios, servicios, visitantes, colonos activados/app), horas pico, tipos de visita, últimas placas, rango de fechas | ✅ |
 | Visitas | Buscar, filtros (tipo/estatus/caseta), QR Auto, QR Caminando, Nueva visita, Autorizar, Dar acceso, Notificar paquetería, Reportar, Salida | ✅ (acciones con UI; lógica → backend) |
-| Departamentos | Buscar, filtro por tipo (terreno/construcción/residencia/activadas), Nuevo, estado moroso, recibiendo visitas, límites | ✅ |
+| Departamentos | Buscar, Nuevo, **editar, marcar/quitar moroso, eliminar** (CRUD real contra Supabase), tipo/cobranza | ✅✅ profundo |
 | Autos y placas | Nueva placa, Leer placa (LPR), lista negra/gris, REPUVE, asignación a casa/visitante | ✅ |
 | Usuarios | **Hub → 5 sub-secciones** (Administradores, Supervisores, Colaboradores, Guardias, Visitantes); por tarjeta: editar, activar/desactivar, eliminar; alta con formulario. **CRUD real contra Supabase** | ✅✅ profundo |
 | Lista negra | Placas vetadas, visitantes vetados, motivo | ✅ |
@@ -64,10 +64,18 @@ Leyenda de estado V2 (web admin): ✅ construido · 🟡 stub navegable · 📱 
 "Construido" = navegación + UI + datos reales (lectura). "Profundo" = además **acciones de escritura
 funcionales** (crear/editar/activar/eliminar contra Supabase), sub-vistas y detalle.
 
-- **Profundo (CRUD real):** Usuarios (hub + 5 secciones). ← nuevo estándar de profundidad.
-- **Con datos reales (lectura):** Dashboard, Visitas, Departamentos, Autos.
+- **Profundo (CRUD real):** Usuarios (hub + 5 secciones), Departamentos.
+- **Con datos reales (lectura):** Dashboard, Visitas, Autos.
 - **UI + demo (pendiente datos/acciones):** Avisos, Sugerencias, Reportes, Sedes, Casetas, Servicios,
   Lista negra, Configuración.
+
+## Hubs descubiertos en el portal real (sub-secciones)
+- **Usuarios** → Administradores, Supervisores, Colaboradores, Guardias, Visitantes ✅ replicado.
+- **Reportes** → 14 sub-reportes (por guardia/depto/status/placa/QR/eventos/autos/avisos/incidentes/
+  uso-app/usuarios activos-eliminados/paquetería). Pendiente replicar como hub.
+- **Configuración** → Configurar residencial, Casetas/Cámaras IP, Servicios, Proveedores, Sucursales.
+  Pendiente agrupar como hub.
+- **Departamentos / Avisos / Autos / Visitas** → vistas planas (lista + alta/detalle), no hubs.
 
 **Plan:** replicar el patrón profundo de Usuarios (sub-vistas + detalle + formularios + acciones
 de escritura) en el resto de módulos, revisando **cada botón** contra el portal real (`admin.kg-visit.com`).
