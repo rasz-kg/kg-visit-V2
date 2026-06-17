@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, DoorOpen, Building2, Users, Car, MapPinned, ShieldCheck, Wrench,
   Megaphone, BarChart3, MessageSquareWarning, Ban, Settings, Truck, Building, Video,
-  Tag, Tags, AlertTriangle, MapPin, type LucideIcon,
+  Tag, Tags, AlertTriangle, MapPin, Smartphone, type LucideIcon,
 } from "lucide-react";
 
 export interface NavItem {
@@ -23,6 +23,7 @@ export const NAV: NavGroup[] = [
       { label: "Visitas", href: "/visitas", icon: DoorOpen },
       { label: "Departamentos", href: "/departamentos", icon: Building2 },
       { label: "Autos y placas", href: "/autos", icon: Car },
+      { label: "Emulador de apps", href: "/emulador", icon: Smartphone },
     ],
   },
   {
