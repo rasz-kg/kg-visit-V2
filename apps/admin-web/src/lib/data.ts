@@ -2,8 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import * as mock from "@/lib/mock";
 import type {
-  House, Plate, User, Visit, Role, HouseKind, VisitKind, VisitStatus, PlateList,
+  House, Plate, User, Visit, Role, HouseKind, VisitKind, VisitStatus, PlateList, Person,
 } from "@/lib/types";
+import type { SectionDef } from "@/lib/sections";
 
 // Capa de acceso a datos. Lee de Supabase cuando está configurado; si no, usa datos demo.
 // Toda función es null-safe y nunca lanza: ante error de red/permiso, degrada a demo.
@@ -147,6 +148,40 @@ export async function getPlates(): Promise<Plate[]> {
     }));
   } catch {
     return mock.plates;
+  }
+}
+
+export async function getPeople(section: SectionDef): Promise<Person[]> {
+  if (!isSupabaseConfigured) {
+    if (section.source === "visitors") {
+      return [
+        { id: "mv1", name: "María López", contact: "55 1111 1111", status: true },
+        { id: "mv2", name: "Repartidor Amazon", secondary: "Amazon", contact: "55 2222 2222", status: true },
+      ];
+    }
+    return mock.users
+      .filter((u) => u.role === section.role)
+      .map((u) => ({ id: u.id, name: u.name, secondary: u.username, contact: u.email, status: u.status }));
+  }
+  try {
+    const sb = await createClient();
+    if (section.source === "visitors") {
+      const res = await sb.from("visitors").select("id,name,company,phone,status").eq("deleted", false).order("name");
+      const rows = (res.data ?? []) as unknown as { id: string; name: string; company: string | null; phone: string | null; status: boolean }[];
+      return rows.map((v) => ({ id: v.id, name: v.name, secondary: v.company ?? undefined, contact: v.phone ?? undefined, status: v.status }));
+    }
+    const rolRes = await sb.from("rols").select("id").eq("name", section.role!);
+    const ids = ((rolRes.data ?? []) as unknown as { id: string }[]).map((r) => r.id);
+    if (ids.length === 0) return [];
+    const res = await sb
+      .from("users")
+      .select("id,name,username,email,status")
+      .in("rol_id", ids)
+      .order("name");
+    const rows = (res.data ?? []) as unknown as { id: string; name: string; username: string | null; email: string | null; status: boolean }[];
+    return rows.map((u) => ({ id: u.id, name: u.name, secondary: u.username ?? undefined, contact: u.email ?? undefined, status: u.status }));
+  } catch {
+    return [];
   }
 }
 

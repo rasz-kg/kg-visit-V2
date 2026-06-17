@@ -106,3 +106,12 @@ export interface ReportDef {
   description: string;
   group: string;
 }
+
+/** Persona genérica para el módulo Usuarios (users o visitors). */
+export interface Person {
+  id: string;
+  name: string;
+  secondary?: string; // username (users) o empresa (visitors)
+  contact?: string; // email (users) o teléfono (visitors)
+  status: boolean;
+}

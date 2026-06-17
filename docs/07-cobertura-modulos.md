@@ -13,7 +13,7 @@ Leyenda de estado V2 (web admin): ✅ construido · 🟡 stub navegable · 📱 
 | Visitas | Buscar, filtros (tipo/estatus/caseta), QR Auto, QR Caminando, Nueva visita, Autorizar, Dar acceso, Notificar paquetería, Reportar, Salida | ✅ (acciones con UI; lógica → backend) |
 | Departamentos | Buscar, filtro por tipo (terreno/construcción/residencia/activadas), Nuevo, estado moroso, recibiendo visitas, límites | ✅ |
 | Autos y placas | Nueva placa, Leer placa (LPR), lista negra/gris, REPUVE, asignación a casa/visitante | ✅ |
-| Usuarios | Tabs por rol (admin/supervisor/staff/guardia/residente), Nuevo, editar, cambiar password, activar/desactivar | ✅ |
+| Usuarios | **Hub → 5 sub-secciones** (Administradores, Supervisores, Colaboradores, Guardias, Visitantes); por tarjeta: editar, activar/desactivar, eliminar; alta con formulario. **CRUD real contra Supabase** | ✅✅ profundo |
 | Lista negra | Placas vetadas, visitantes vetados, motivo | ✅ |
 | Avisos | Nuevo aviso (empresa/departamento), tipos (general/cobranza/emergencia) | ✅ |
 | Sugerencias y quejas | Tickets queja/sugerencia, concepto, estatus, respuestas | ✅ |
@@ -60,7 +60,19 @@ Leyenda de estado V2 (web admin): ✅ construido · 🟡 stub navegable · 📱 
 | Sugerencias/quejas (queja/sugerencia, concepto, comentario, adjuntar imagen) | 📱 |
 | Chat con guardias · Chat bot de soporte (IA) | 🔭 |
 
+## Profundidad por módulo (honesto)
+"Construido" = navegación + UI + datos reales (lectura). "Profundo" = además **acciones de escritura
+funcionales** (crear/editar/activar/eliminar contra Supabase), sub-vistas y detalle.
+
+- **Profundo (CRUD real):** Usuarios (hub + 5 secciones). ← nuevo estándar de profundidad.
+- **Con datos reales (lectura):** Dashboard, Visitas, Departamentos, Autos.
+- **UI + demo (pendiente datos/acciones):** Avisos, Sugerencias, Reportes, Sedes, Casetas, Servicios,
+  Lista negra, Configuración.
+
+**Plan:** replicar el patrón profundo de Usuarios (sub-vistas + detalle + formularios + acciones
+de escritura) en el resto de módulos, revisando **cada botón** contra el portal real (`admin.kg-visit.com`).
+
 ## Resumen
-- **Web admin (este entregable):** 13 módulos construidos (✅), 1 stub (🟡), 3 backlog (🔭).
+- **Web admin:** Usuarios profundo con CRUD real; 4 módulos con datos reales; resto con UI + datos demo.
 - **Apps móviles (`apps/guard`, `apps/resident`):** especificadas botón por botón aquí; se construirán en Expo (React Native) reutilizando el modelo de datos y el cliente de API.
 - Toda acción de escritura (autorizar, crear, reportar, etc.) tiene su **mutation** mapeada en `06-api-graphql.md` y su tabla en `/supabase`.
