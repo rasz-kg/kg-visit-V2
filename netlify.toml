@@ -1,0 +1,37 @@
+# KG-Visit V2 — despliegue del panel admin (apps/admin-web) en Netlify.
+# Next.js 16: SSR, Server Actions y middleware de sesión Supabase se mapean
+# automáticamente a Netlify Functions y Edge Functions (@netlify/next).
+
+[build]
+  base = "apps/admin-web"
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+# Cabeceras de seguridad para un portal de control de acceso residencial.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# Assets estáticos de Next.js: cache largo en el CDN de Netlify.
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Variables requeridas (configurar en Netlify UI o CLI, no commitear):
+#   NEXT_PUBLIC_SUPABASE_URL
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+[context.production]
+  command = "npm run build"
+
+[context.deploy-preview]
+  command = "npm run build"

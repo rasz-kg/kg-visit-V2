@@ -1,22 +1,28 @@
 import * as React from "react";
 import {
   View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Alert,
-  TextInput, Modal,
+  TextInput, Modal, Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ChevronLeft, Check, X, LogIn, LogOut, Flag, AlertTriangle,
-  Clock, DoorOpen, DoorClosed, type LucideIcon,
+  Clock, DoorOpen, DoorClosed, Bell, BellRing, QrCode, ChevronRight,
+  type LucideIcon,
 } from "lucide-react-native";
 import {
-  getVisitById, authorizeVisit, denyVisit, giveAccess, leaveVisit, reportVisit,
-  createIncident, formatDate, type VisitDetail,
+  getVisitById, authorizeVisit, denyVisit, giveAccess, leaveVisit,
+  reportIncident, notifyHouseResident, notifyHouseResidentUrgent,
+  formatDate, type VisitDetail,
 } from "@/lib/data";
 import { colors, radius, spacing, useIsTablet, VISIT_KIND, VISIT_STATUS } from "@/lib/theme";
 
 // Pantalla 5 — Detalle de visita. Hero naranja con folio y status, secciones
 // de campos en cards (title gris arriba + valor abajo), acciones en pills.
+// El botón "Reportar" abre un modal con 3 acciones (incidencia, anuncio,
+// urgencia) que escriben directamente en Supabase.
+type ReportMode = "incident" | "notify" | "urgent";
+
 export default function VisitaDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -26,8 +32,11 @@ export default function VisitaDetailScreen() {
   const [visit, setVisit] = React.useState<VisitDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
-  const [incidentOpen, setIncidentOpen] = React.useState(false);
-  const [incidentReason, setIncidentReason] = React.useState("");
+
+  // Modal de "Reportar" — primero muestra las 3 opciones, luego el formulario.
+  const [reportOpen, setReportOpen] = React.useState(false);
+  const [reportMode, setReportMode] = React.useState<ReportMode | null>(null);
+  const [reportText, setReportText] = React.useState("");
 
   const load = React.useCallback(async () => {
     if (!id) return;
@@ -49,19 +58,55 @@ export default function VisitaDetailScreen() {
     load();
   }
 
-  async function submitIncident() {
-    const reason = incidentReason.trim();
-    if (!reason) { Alert.alert("Falta el motivo", "Escribe el motivo del incidente."); return; }
-    setBusy(true);
-    const res = await createIncident(String(id), reason);
-    setBusy(false);
-    if (res.error) {
-      Alert.alert("No se pudo crear el incidente", res.error);
+  function openReport() {
+    setReportMode(null);
+    setReportText("");
+    setReportOpen(true);
+  }
+
+  function chooseMode(mode: ReportMode) {
+    setReportMode(mode);
+    // Sugerencia inicial editable según el modo elegido.
+    if (mode === "incident") setReportText("");
+    else if (mode === "notify") setReportText(`El visitante ${visit?.who ?? ""} está en la caseta`);
+    else setReportText(`Se requiere tu atención: visita de ${visit?.who ?? ""}`);
+  }
+
+  function backToModes() {
+    setReportMode(null);
+    setReportText("");
+  }
+
+  async function submitReport() {
+    if (!visit || !reportMode) return;
+    const text = reportText.trim();
+    if (reportMode === "incident" && !text) {
+      Alert.alert("Falta el motivo", "Escribe el motivo de la incidencia.");
       return;
     }
-    setIncidentOpen(false);
-    setIncidentReason("");
-    Alert.alert("Incidente creado", "Quedó registrado en el historial.");
+    setBusy(true);
+    let result: { error?: string };
+    let okMsg = "";
+    if (reportMode === "incident") {
+      result = await reportIncident(visit.id, text);
+      okMsg = "Incidencia reportada";
+    } else if (reportMode === "notify") {
+      result = await notifyHouseResident(visit.id, text || undefined);
+      okMsg = "Aviso enviado al colono";
+    } else {
+      result = await notifyHouseResidentUrgent(visit.id, text || undefined);
+      okMsg = "Alerta enviada al responsable";
+    }
+    setBusy(false);
+    if (result.error) {
+      Alert.alert("No se pudo completar", result.error);
+      return;
+    }
+    setReportOpen(false);
+    setReportMode(null);
+    setReportText("");
+    Alert.alert(okMsg, "Quedó registrado.");
+    load();
   }
 
   if (loading) {
@@ -120,7 +165,6 @@ export default function VisitaDetailScreen() {
           <Row label="Nombre" value={visit.who} />
           {visit.visitorPhone && <Row label="Teléfono" value={visit.visitorPhone} />}
           {visit.visitorCompany && <Row label="Empresa" value={visit.visitorCompany} />}
-          {visit.visitorCurp && <Row label="CURP" value={visit.visitorCurp} />}
           {visit.serviceName && <Row label="Servicio" value={visit.serviceName} />}
           {visit.employeeName && <Row label="Empleado" value={visit.employeeName} />}
         </Card>
@@ -160,7 +204,7 @@ export default function VisitaDetailScreen() {
             <View style={styles.flagsRow}>
               {visit.quick && <FlagChip label="Rápida" />}
               {visit.private && <FlagChip label="Privada" />}
-              {visit.guardReport && <FlagChip label="Creada por guardia" />}
+              {visit.guardReport && <FlagChip label="Reportada por guardia" />}
             </View>
           </Card>
         )}
@@ -168,7 +212,27 @@ export default function VisitaDetailScreen() {
         {/* Fotos */}
         {visit.photos.length > 0 && (
           <Card title={`Fotos (${visit.photos.length})`}>
-            <Text style={styles.faint}>Las fotos están almacenadas en `visit_photos`. Visualización inline próximamente.</Text>
+            <View style={styles.photosGrid}>
+              {visit.photos.map((p) => {
+                // Si el url incluye un anchor con la etiqueta (uploadVisitPhoto)
+                // la separamos para mostrar como caption.
+                const [src, hash] = p.url.split("#");
+                const label = hash ? decodeURIComponent(hash) : null;
+                const isHttp = /^https?:\/\//i.test(src) || src.startsWith("file://") || src.startsWith("data:");
+                return (
+                  <View key={p.id} style={styles.photoTile}>
+                    {isHttp ? (
+                      <Image source={{ uri: src }} style={styles.photoImg} />
+                    ) : (
+                      <View style={[styles.photoImg, styles.photoFallback]}>
+                        <Text style={styles.photoFallbackText} numberOfLines={3}>{src}</Text>
+                      </View>
+                    )}
+                    {label && <Text style={styles.photoCaption}>{label}</Text>}
+                  </View>
+                );
+              })}
+            </View>
           </Card>
         )}
 
@@ -195,43 +259,87 @@ export default function VisitaDetailScreen() {
             <ActionBtn icon={LogOut} label="Registrar salida" tone="ink" busy={busy}
               onPress={() => runAction(() => leaveVisit(visit.id))} />
           )}
+          <ActionBtn icon={QrCode} label="Emitir QR" tone="amber" busy={busy}
+            onPress={() => router.push(`/(app)/visitas/${visit.id}/qr-emit`)} />
           <ActionBtn icon={Flag} label="Reportar visita" tone="muted" busy={busy}
-            onPress={() => runAction(() => reportVisit(visit.id))} />
-          <ActionBtn icon={AlertTriangle} label="Crear incidente" tone="amber" busy={busy}
-            onPress={() => setIncidentOpen(true)} />
+            onPress={openReport} />
         </View>
       </ScrollView>
 
-      {/* Modal de incidente — centrado, botones outline (Cancelar) y brand (Crear) */}
-      <Modal visible={incidentOpen} transparent animationType="fade" onRequestClose={() => setIncidentOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setIncidentOpen(false)}>
+      {/* Modal "Reportar" — paso 1: 3 opciones, paso 2: formulario contextual */}
+      <Modal visible={reportOpen} transparent animationType="fade" onRequestClose={() => setReportOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setReportOpen(false)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>Crear incidente</Text>
-            <Text style={styles.modalHint}>Describe el motivo del incidente para esta visita.</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={incidentReason}
-              onChangeText={setIncidentReason}
-              placeholder="Ej. Placa no coincide con el registro"
-              placeholderTextColor={colors.textFaint}
-              multiline
-              numberOfLines={4}
-            />
-            <View style={styles.modalActions}>
-              <Pressable
-                style={styles.modalBtnGhost}
-                onPress={() => setIncidentOpen(false)}
-              >
-                <Text style={{ color: colors.text, fontWeight: "700" }}>Cancelar</Text>
-              </Pressable>
-              <Pressable
-                style={styles.modalBtnPrimary}
-                onPress={submitIncident}
-                disabled={busy}
-              >
-                {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800" }}>Crear</Text>}
-              </Pressable>
-            </View>
+            {reportMode === null ? (
+              <>
+                <Text style={styles.modalTitle}>Reportar visita</Text>
+                <Text style={styles.modalHint}>Selecciona la acción que necesitas.</Text>
+                <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
+                  <ReportOption
+                    icon={AlertTriangle}
+                    title="Reportar incidencia"
+                    hint="Registrar un motivo de incidente formal"
+                    tone="red"
+                    onPress={() => chooseMode("incident")}
+                  />
+                  <ReportOption
+                    icon={Bell}
+                    title="Anunciar al colono"
+                    hint="Avisar al residente que la visita llegó"
+                    tone="brand"
+                    onPress={() => chooseMode("notify")}
+                  />
+                  <ReportOption
+                    icon={BellRing}
+                    title="Avisar al responsable"
+                    hint="Notificación urgente — requiere atención"
+                    tone="amber"
+                    onPress={() => chooseMode("urgent")}
+                  />
+                </View>
+                <View style={[styles.modalActions, { marginTop: spacing.md }]}>
+                  <Pressable style={styles.modalBtnGhost} onPress={() => setReportOpen(false)}>
+                    <Text style={{ color: colors.text, fontWeight: "700" }}>Cerrar</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.modalTitle}>
+                  {reportMode === "incident" ? "Reportar incidencia"
+                    : reportMode === "notify" ? "Anunciar al colono"
+                    : "Avisar al responsable"}
+                </Text>
+                <Text style={styles.modalHint}>
+                  {reportMode === "incident"
+                    ? "Describe el motivo del incidente. Quedará en el historial."
+                    : reportMode === "notify"
+                    ? "Mensaje que verá el residente vinculado a la casa."
+                    : "Mensaje de atención inmediata para el residente."}
+                </Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={reportText}
+                  onChangeText={setReportText}
+                  placeholder={reportMode === "incident" ? "Ej. Placa no coincide con el registro" : "Mensaje"}
+                  placeholderTextColor={colors.textFaint}
+                  multiline
+                  numberOfLines={4}
+                />
+                <View style={styles.modalActions}>
+                  <Pressable style={styles.modalBtnGhost} onPress={backToModes}>
+                    <Text style={{ color: colors.text, fontWeight: "700" }}>Atrás</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.modalBtnPrimary}
+                    onPress={submitReport}
+                    disabled={busy}
+                  >
+                    {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800" }}>Guardar</Text>}
+                  </Pressable>
+                </View>
+              </>
+            )}
           </Pressable>
         </Pressable>
       </Modal>
@@ -250,12 +358,13 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 
 // Línea de tiempo cronológica: llegada → entrada → salida. Cada hito muestra
 // label + valor formateado en es-MX. Si un hito está vacío, lo marca como
-// "Pendiente" con tono apagado.
+// "Pendiente" con tono apagado. El dot toma el color del estado real (ámbar
+// para llegada, verde para entrada, azul para salida) cuando hay fecha.
 function Timeline({ visit }: { visit: VisitDetail }) {
   const events: { icon: LucideIcon; label: string; value: string | null; color: string }[] = [
     { icon: Clock, label: "Llegada", value: visit.arriveDate, color: colors.amber },
     { icon: DoorOpen, label: "Entrada", value: visit.enterDate, color: colors.green },
-    { icon: DoorClosed, label: "Salida", value: visit.leaveDate, color: colors.textMuted },
+    { icon: DoorClosed, label: "Salida", value: visit.leaveDate, color: colors.blue },
   ];
   return (
     <View style={styles.timeline}>
@@ -268,9 +377,16 @@ function Timeline({ visit }: { visit: VisitDetail }) {
           <View key={e.label} style={styles.tlRow}>
             <View style={styles.tlGutter}>
               <View style={[styles.tlDot, { backgroundColor: dotColor }]}>
-                <Icon color="#fff" size={12} />
+                <Icon color={present ? "#fff" : colors.textFaint} size={12} />
               </View>
-              {!isLast && <View style={[styles.tlLine, present && { backgroundColor: e.color + "55" }]} />}
+              {!isLast && (
+                <View
+                  style={[
+                    styles.tlLine,
+                    present && { backgroundColor: e.color + "55" },
+                  ]}
+                />
+              )}
             </View>
             <View style={styles.tlBody}>
               <Text style={styles.tlLabel}>{e.label}</Text>
@@ -329,6 +445,34 @@ function ActionBtn({
   );
 }
 
+// Card grande para cada una de las 3 opciones del modal "Reportar".
+function ReportOption({
+  icon: Icon, title, hint, tone, onPress,
+}: {
+  icon: LucideIcon;
+  title: string;
+  hint: string;
+  tone: "red" | "brand" | "amber";
+  onPress: () => void;
+}) {
+  const color = tone === "red" ? colors.red : tone === "amber" ? colors.amber : colors.brand;
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.reportOption, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+      onPress={onPress}
+    >
+      <View style={[styles.reportOptionIcon, { backgroundColor: color + "22" }]}>
+        <Icon color={color} size={22} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.reportOptionTitle}>{title}</Text>
+        <Text style={styles.reportOptionHint}>{hint}</Text>
+      </View>
+      <ChevronRight color={colors.textFaint} size={20} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   header: {
@@ -376,6 +520,14 @@ const styles = StyleSheet.create({
   },
   actionText: { fontSize: 14, fontWeight: "800" },
 
+  // Fotos
+  photosGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.sm },
+  photoTile: { width: "47%", gap: 4 },
+  photoImg: { aspectRatio: 1, borderRadius: radius.md, backgroundColor: "#0f172a" },
+  photoFallback: { alignItems: "center", justifyContent: "center", padding: spacing.sm },
+  photoFallbackText: { color: colors.textFaint, fontSize: 10, textAlign: "center" },
+  photoCaption: { fontSize: 11, color: colors.textMuted, textAlign: "center", fontWeight: "600" },
+
   modalBackdrop: { flex: 1, backgroundColor: "rgba(15,23,42,0.55)", justifyContent: "center", padding: spacing.xl },
   modalCard: {
     backgroundColor: colors.card, borderRadius: radius.xl, padding: spacing.xl, gap: spacing.sm,
@@ -401,6 +553,19 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.brand,
   },
+
+  // Opciones del modal "Reportar"
+  reportOption: {
+    flexDirection: "row", alignItems: "center", gap: spacing.md,
+    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
+    padding: spacing.md, borderRadius: radius.lg,
+  },
+  reportOptionIcon: {
+    width: 44, height: 44, borderRadius: radius.pill,
+    alignItems: "center", justifyContent: "center",
+  },
+  reportOptionTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
+  reportOptionHint: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
 
   // Línea de tiempo (Historial)
   timeline: { marginTop: spacing.sm, gap: 0 },

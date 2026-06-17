@@ -4,17 +4,19 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, QrCode, ScanLine, LogIn, LogOut, Flag } from "lucide-react-native";
+import {
+  ChevronLeft, QrCode, ScanLine, LogIn, LogOut, Flag, Keyboard, Camera as CameraIcon,
+} from "lucide-react-native";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { useBooth } from "@/lib/booth";
 import {
   getVisitByFolio, giveAccess, leaveVisit, reportVisit, formatDate, type VisitItem,
 } from "@/lib/data";
 import { colors, radius, spacing, useIsTablet, VISIT_STATUS, VISIT_KIND } from "@/lib/theme";
 
-// Pantalla 13 — QR Auto / Caminando. Como `expo-camera` puede dar problemas en
-// MuMu y aún no es objetivo de esta fase, usamos captura MANUAL del folio
-// (etiquetado honestamente). La búsqueda llama getVisitByFolio y permite
-// dar acceso / registrar salida desde la misma pantalla.
+// Pantalla 13 — QR Auto / Caminando. Usa la cámara real (expo-camera CameraView)
+// con el barcode scanner activado para QR. Si el guardia prefiere capturar el
+// folio a mano, hay un fallback "Captura manual" al final.
 export default function QrScreen() {
   const { modo } = useLocalSearchParams<{ modo?: "auto" | "walking" | string }>();
   const router = useRouter();
@@ -24,21 +26,69 @@ export default function QrScreen() {
 
   const isWalking = modo === "walking";
 
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = React.useState(false);
+  const [manual, setManual] = React.useState(false);
+
   const [folio, setFolio] = React.useState("");
   const [visit, setVisit] = React.useState<VisitItem | null>(null);
   const [searching, setSearching] = React.useState(false);
   const [acting, setActing] = React.useState(false);
   const [notFound, setNotFound] = React.useState(false);
 
-  async function search() {
-    const f = folio.trim();
-    if (!f) return;
+  // Pide permiso al montar.
+  React.useEffect(() => {
+    if (!permission) return;
+    if (!permission.granted && permission.canAskAgain) requestPermission();
+  }, [permission, requestPermission]);
+
+  // Convierte el contenido escaneado en un folio. Acepta texto plano (F-XXXX)
+  // o un JSON con { folio: "F-XXXX" }.
+  function extractFolio(raw: string): string | null {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed) as { folio?: unknown };
+        if (typeof parsed.folio === "string" && parsed.folio.length > 0) return parsed.folio.trim();
+      } catch {
+        // No es JSON válido: lo tratamos como texto plano abajo.
+      }
+    }
+    return trimmed;
+  }
+
+  async function handleBarcode(raw: string) {
+    if (scanned || searching) return;
+    setScanned(true);
+    const extracted = extractFolio(raw);
+    if (!extracted) {
+      setScanned(false);
+      return;
+    }
+    await lookupFolio(extracted);
+  }
+
+  async function lookupFolio(f: string) {
     setSearching(true);
     setNotFound(false);
     const v = await getVisitByFolio(f);
     setSearching(false);
-    if (!v) { setVisit(null); setNotFound(true); return; }
+    if (!v) {
+      setVisit(null);
+      setNotFound(true);
+      Alert.alert("Folio no válido o expirado", `No se encontró ninguna visita con folio "${f}".`, [
+        { text: "OK", onPress: () => setScanned(false) },
+      ]);
+      return;
+    }
     setVisit(v);
+  }
+
+  async function searchManual() {
+    const f = folio.trim();
+    if (!f) return;
+    await lookupFolio(f);
   }
 
   async function run(fn: () => Promise<{ error?: string }>, ok: string) {
@@ -47,6 +97,13 @@ export default function QrScreen() {
     setActing(false);
     if (res.error) { Alert.alert("No se pudo completar", res.error); return; }
     Alert.alert("Listo", ok, [{ text: "OK", onPress: () => router.replace("/(app)/visitas") }]);
+  }
+
+  function resetForNextScan() {
+    setVisit(null);
+    setNotFound(false);
+    setFolio("");
+    setScanned(false);
   }
 
   return (
@@ -59,7 +116,9 @@ export default function QrScreen() {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.brand}>{isWalking ? "QR Caminando" : "QR Auto"}</Text>
-            <Text style={styles.brandHint}>{isWalking ? "Acceso peatonal" : "Acceso vehicular"} · {booth?.name ?? "Sin caseta"}</Text>
+            <Text style={styles.brandHint}>
+              {isWalking ? "Acceso peatonal" : "Acceso vehicular"} · {booth?.name ?? "Sin caseta"}
+            </Text>
           </View>
           <View style={styles.headerIcon}>
             {isWalking ? <ScanLine color="#fff" size={26} /> : <QrCode color="#fff" size={26} />}
@@ -71,20 +130,75 @@ export default function QrScreen() {
         { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl * 2 },
         isTablet && { padding: spacing.xl, maxWidth: 720, alignSelf: "center", width: "100%" },
       ]}>
-        {/* Card gigante de captura */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Captura manual de folio</Text>
-          <Text style={styles.cardHint}>Escaneo por cámara — próximamente. Por ahora ingresa el folio del pase.</Text>
-          <TextInput style={styles.input} value={folio} onChangeText={setFolio}
-            placeholder="FOLIO" placeholderTextColor={colors.textFaint}
-            keyboardType="default" autoCapitalize="characters" returnKeyType="search"
-            onSubmitEditing={search} />
-          <Pressable style={styles.searchBtn} onPress={search} disabled={searching}>
-            {searching ? <ActivityIndicator color="#fff" /> : <Text style={styles.searchBtnText}>Buscar</Text>}
-          </Pressable>
-        </View>
+        {/* Visor cámara — sólo si no hay visita resuelta y no estamos en modo manual */}
+        {!visit && !manual && (
+          <View style={styles.cameraWrap}>
+            {permission?.granted ? (
+              <>
+                <CameraView
+                  style={StyleSheet.absoluteFill}
+                  facing="back"
+                  barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+                  onBarcodeScanned={scanned ? undefined : (r) => handleBarcode(r.data)}
+                />
+                {/* Overlay: cuadrado con esquinas naranja brand */}
+                <View pointerEvents="none" style={styles.cameraOverlay}>
+                  <View style={styles.scanFrame}>
+                    <View style={[styles.corner, styles.cornerTL]} />
+                    <View style={[styles.corner, styles.cornerTR]} />
+                    <View style={[styles.corner, styles.cornerBL]} />
+                    <View style={[styles.corner, styles.cornerBR]} />
+                  </View>
+                  <Text style={styles.scanHint}>Apunta al QR del visitante</Text>
+                </View>
+                {searching && (
+                  <View style={styles.searchingOverlay}>
+                    <ActivityIndicator color="#fff" size="large" />
+                    <Text style={styles.searchingText}>Buscando folio…</Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={styles.noCam}>
+                <CameraIcon color="#fff" size={48} />
+                <Text style={styles.noCamTitle}>Cámara no disponible</Text>
+                <Text style={styles.noCamHint}>
+                  Otorga permiso de cámara para escanear o usa la captura manual.
+                </Text>
+                <Pressable style={styles.noCamBtn} onPress={() => requestPermission()}>
+                  <Text style={{ color: "#fff", fontWeight: "800" }}>Solicitar permiso</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        )}
 
-        {notFound && (
+        {/* Captura manual (fallback) */}
+        {!visit && manual && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Captura manual de folio</Text>
+            <Text style={styles.cardHint}>Ingresa el folio del pase tal como aparece en la app del residente.</Text>
+            <TextInput style={styles.input} value={folio} onChangeText={setFolio}
+              placeholder="FOLIO" placeholderTextColor={colors.textFaint}
+              keyboardType="default" autoCapitalize="characters" returnKeyType="search"
+              onSubmitEditing={searchManual} />
+            <Pressable style={styles.searchBtn} onPress={searchManual} disabled={searching}>
+              {searching ? <ActivityIndicator color="#fff" /> : <Text style={styles.searchBtnText}>Buscar</Text>}
+            </Pressable>
+            <Pressable style={styles.linkBtn} onPress={() => setManual(false)}>
+              <Text style={styles.linkBtnText}>Volver al escáner</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {!visit && !manual && (
+          <Pressable style={styles.manualBtn} onPress={() => setManual(true)}>
+            <Keyboard color={colors.brand} size={18} />
+            <Text style={styles.manualBtnText}>Captura manual</Text>
+          </Pressable>
+        )}
+
+        {notFound && !visit && (
           <View style={[styles.card, styles.cardError]}>
             <Text style={[styles.cardTitle, { color: colors.red }]}>Folio no encontrado</Text>
             <Text style={styles.cardHint}>Verifica que el folio corresponda a una visita del tenant.</Text>
@@ -128,6 +242,9 @@ export default function QrScreen() {
                   onPress={() => router.push(`/(app)/visitas/${visit.id}`)}>
                   <Text style={[styles.actionText, { color: colors.text }]}>Ver detalle</Text>
                 </Pressable>
+                <Pressable style={[styles.actionBtn, styles.actionGhost]} onPress={resetForNextScan}>
+                  <Text style={[styles.actionText, { color: colors.brand }]}>Escanear otro</Text>
+                </Pressable>
               </View>
             </View>
           );
@@ -154,6 +271,65 @@ const styles = StyleSheet.create({
     backgroundColor: colors.headerOverlayStrong, borderWidth: 1, borderColor: "#fff",
     alignItems: "center", justifyContent: "center",
   },
+
+  // Visor cámara
+  cameraWrap: {
+    aspectRatio: 3 / 4,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+    backgroundColor: "#000",
+  },
+  cameraOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.lg,
+  },
+  scanFrame: {
+    width: "65%",
+    aspectRatio: 1,
+    borderRadius: radius.lg,
+    position: "relative",
+  },
+  corner: {
+    position: "absolute",
+    width: 36, height: 36,
+    borderColor: colors.brand,
+  },
+  cornerTL: { top: 0, left: 0, borderLeftWidth: 4, borderTopWidth: 4, borderTopLeftRadius: radius.md },
+  cornerTR: { top: 0, right: 0, borderRightWidth: 4, borderTopWidth: 4, borderTopRightRadius: radius.md },
+  cornerBL: { bottom: 0, left: 0, borderLeftWidth: 4, borderBottomWidth: 4, borderBottomLeftRadius: radius.md },
+  cornerBR: { bottom: 0, right: 0, borderRightWidth: 4, borderBottomWidth: 4, borderBottomRightRadius: radius.md },
+  scanHint: {
+    color: "#fff", fontSize: 14, fontWeight: "700",
+    textShadowColor: "rgba(0,0,0,0.6)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6,
+  },
+  searchingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center", justifyContent: "center", gap: spacing.sm,
+  },
+  searchingText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  noCam: {
+    flex: 1, alignItems: "center", justifyContent: "center",
+    gap: spacing.sm, padding: spacing.xl, backgroundColor: "#1f2937",
+  },
+  noCamTitle: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  noCamHint: { color: "rgba(255,255,255,0.7)", fontSize: 13, textAlign: "center" },
+  noCamBtn: {
+    marginTop: spacing.sm, backgroundColor: colors.brand,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2,
+    borderRadius: radius.pill,
+  },
+
+  manualBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: "#fff", borderWidth: 1, borderColor: colors.brand,
+    borderRadius: radius.pill, paddingVertical: spacing.md,
+  },
+  manualBtnText: { color: colors.brand, fontWeight: "800", fontSize: 14 },
+  linkBtn: { alignItems: "center", paddingVertical: spacing.sm, marginTop: 4 },
+  linkBtnText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
 
   card: {
     backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.xl,

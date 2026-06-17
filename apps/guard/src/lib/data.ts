@@ -348,7 +348,6 @@ export interface NewVisitInput {
   kind: "visitor" | "service" | "employee" | "resident";
   houseId: string;
   visitorName?: string;
-  visitorCurp?: string | null;
   visitorPhone?: string | null;
   serviceId?: string | null;
   employeeId?: string | null;
@@ -378,7 +377,6 @@ export async function createGuardVisit(
       .insert({
         residential_id: residentialId,
         name: input.visitorName.trim(),
-        curp: input.visitorCurp?.trim() || null,
         phone: input.visitorPhone?.trim() || null,
       } as never)
       .select("id")
@@ -549,4 +547,178 @@ export async function getVisitFolioById(id: string): Promise<string | null> {
   const res = await supabase.from("visits").select("folio").eq("id", id).maybeSingle();
   if (res.error || !res.data) return null;
   return (res.data as { folio: string | null }).folio ?? null;
+}
+
+// ----------------------------------------------------------------------------
+// Reporte de visita ampliado: incidencia, anuncio, urgencia (pantalla 1 / 5)
+// ----------------------------------------------------------------------------
+
+// Datos mínimos de la visita necesarios para construir el mensaje y resolver
+// la casa destino (lookup del residente).
+interface VisitDispatchInfo {
+  id: string;
+  residentialId: string;
+  houseId: string | null;
+  who: string;
+}
+
+async function getVisitDispatchInfo(visitId: string): Promise<VisitDispatchInfo | null> {
+  const res = await supabase
+    .from("visits")
+    .select(
+      "id,residential_id,house_id," +
+        "visitors(name),services(name),employees(name)",
+    )
+    .eq("id", visitId)
+    .maybeSingle();
+  if (res.error || !res.data) return null;
+  const v = res.data as unknown as {
+    id: string;
+    residential_id: string;
+    house_id: string | null;
+    visitors: { name?: string | null } | null;
+    services: { name?: string | null } | null;
+    employees: { name?: string | null } | null;
+  };
+  return {
+    id: v.id,
+    residentialId: v.residential_id,
+    houseId: v.house_id,
+    who: v.visitors?.name ?? v.services?.name ?? v.employees?.name ?? "el visitante",
+  };
+}
+
+// Resuelve el primer residente activo vinculado a una casa. Devuelve null si
+// la casa no tiene colono activo o si la consulta falla. Prefiere al
+// representante de la casa si existe, si no toma el más antiguo.
+async function findHouseResidentId(houseId: string): Promise<string | null> {
+  const res = await supabase
+    .from("users")
+    .select("id,status,representative,created_at")
+    .eq("house_id", houseId)
+    .eq("status", true)
+    .order("representative", { ascending: false })
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (res.error || !res.data) return null;
+  return (res.data as { id: string }).id;
+}
+
+// Marca la visita como reportada (guard_report=true) sin crear incidente; útil
+// para los flujos de "anunciar al colono" y "avisar al responsable" donde el
+// guardia quiere dejar el rastro pero no abrir un incidente formal.
+async function setGuardReported(visitId: string): Promise<void> {
+  await supabase.from("visits").update({ guard_report: true } as never).eq("id", visitId);
+}
+
+// Crea una incidencia formal (motivo escrito) y marca la visita como reportada.
+// Reusa el helper `createIncident` y luego asegura `guard_report=true`.
+export async function reportIncident(
+  visitId: string,
+  reason: string,
+): Promise<{ error?: string }> {
+  const res = await createIncident(visitId, reason);
+  if (res.error) return res;
+  await setGuardReported(visitId);
+  return {};
+}
+
+// Inserta una notificación dirigida al residente vinculado a la casa de la
+// visita. Si la casa no tiene residente, devuelve un error legible. Marca
+// `guard_report=true` cuando la notificación se inserta correctamente.
+export async function notifyHouseResident(
+  visitId: string,
+  message?: string,
+): Promise<{ error?: string }> {
+  const v = await getVisitDispatchInfo(visitId);
+  if (!v) return { error: "Visita no encontrada" };
+  if (!v.houseId) return { error: "La visita no tiene domicilio asociado" };
+  const residentId = await findHouseResidentId(v.houseId);
+  if (!residentId) return { error: "Este domicilio no tiene residente activo" };
+  const text = (message?.trim() || `El visitante ${v.who} está en la caseta`).slice(0, 500);
+  const { error } = await supabase.from("notifications").insert({
+    residential_id: v.residentialId,
+    user_id: residentId,
+    message: text,
+  } as never);
+  if (error) return { error: error.message };
+  await setGuardReported(visitId);
+  return {};
+}
+
+// Variante "urgente": mismo flujo pero con un prefijo de atención y se usa
+// para el botón "Avisar al responsable".
+export async function notifyHouseResidentUrgent(
+  visitId: string,
+  message?: string,
+): Promise<{ error?: string }> {
+  const v = await getVisitDispatchInfo(visitId);
+  if (!v) return { error: "Visita no encontrada" };
+  if (!v.houseId) return { error: "La visita no tiene domicilio asociado" };
+  const residentId = await findHouseResidentId(v.houseId);
+  if (!residentId) return { error: "Este domicilio no tiene residente activo" };
+  const baseSubject = message?.trim() || `Se requiere tu atención: visita de ${v.who}`;
+  const text = baseSubject.slice(0, 500);
+  const { error } = await supabase.from("notifications").insert({
+    residential_id: v.residentialId,
+    user_id: residentId,
+    message: text,
+  } as never);
+  if (error) return { error: error.message };
+  await setGuardReported(visitId);
+  return {};
+}
+
+// ----------------------------------------------------------------------------
+// Fotos de visita — subida a Storage o, como fallback, persistencia del path
+// local en `visit_photos.url` para que la BD quede consistente.
+// ----------------------------------------------------------------------------
+
+const VISIT_PHOTOS_BUCKET = "visit-photos";
+
+// Lee el URI local (file://...) y lo devuelve como ArrayBuffer para subir a
+// Supabase Storage. Si fetch falla, propaga el error.
+async function readUriAsArrayBuffer(uri: string): Promise<ArrayBuffer> {
+  const r = await fetch(uri);
+  if (!r.ok) throw new Error(`No se pudo leer la foto (${r.status})`);
+  return await r.arrayBuffer();
+}
+
+// Sube una foto desde un URI local al bucket `visit-photos` y registra la fila
+// en `visit_photos`. Si el upload falla (bucket inexistente, sin permisos), se
+// intenta como fallback insertar la fila apuntando al URI local — esto deja
+// huella en BD aunque no se vea inline.
+export async function uploadVisitPhoto(
+  visitId: string,
+  localUri: string,
+  label?: string,
+): Promise<{ error?: string; url?: string }> {
+  // 1. Intentar subir a Storage.
+  let publicUrl: string | null = null;
+  try {
+    const ext = (localUri.split(".").pop() ?? "jpg").toLowerCase().split("?")[0];
+    const safeExt = /^[a-z0-9]{2,5}$/.test(ext) ? ext : "jpg";
+    const key = `${visitId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${safeExt}`;
+    const buf = await readUriAsArrayBuffer(localUri);
+    const up = await supabase.storage.from(VISIT_PHOTOS_BUCKET).upload(key, buf, {
+      contentType: `image/${safeExt === "jpg" ? "jpeg" : safeExt}`,
+      upsert: false,
+    });
+    if (!up.error) {
+      const pub = supabase.storage.from(VISIT_PHOTOS_BUCKET).getPublicUrl(key);
+      publicUrl = pub.data.publicUrl;
+    }
+  } catch {
+    // ignoramos: caemos al fallback con el URI local
+  }
+
+  // 2. Insertar fila en visit_photos (usa URL pública si la hubo, o URI local).
+  const url = publicUrl ?? localUri;
+  const annotated = label ? `${url}#${encodeURIComponent(label)}` : url;
+  const { error } = await supabase
+    .from("visit_photos")
+    .insert({ visit_id: visitId, url: annotated } as never);
+  if (error) return { error: error.message };
+  return { url };
 }

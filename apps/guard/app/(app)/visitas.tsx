@@ -1,17 +1,19 @@
 import * as React from "react";
 import {
   View, Text, TextInput, FlatList, Pressable, StyleSheet, RefreshControl,
-  ActivityIndicator, Alert, ScrollView,
+  ActivityIndicator, Alert, ScrollView, Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   Search, QrCode, ScanLine, Menu, Check, X, LogIn, LogOut, Flag, Plus,
-  Clock, Car, ChevronDown, DoorOpen, type LucideIcon,
+  Clock, Car, ChevronDown, ChevronRight, DoorOpen, AlertTriangle, Bell, BellRing,
+  type LucideIcon,
 } from "lucide-react-native";
 import { useBooth } from "@/lib/booth";
 import {
-  getTodayVisits, formatDate, authorizeVisit, denyVisit, giveAccess, leaveVisit, reportVisit,
+  getTodayVisits, formatDate, authorizeVisit, denyVisit, giveAccess, leaveVisit,
+  reportIncident, notifyHouseResident, notifyHouseResidentUrgent,
   type VisitItem,
 } from "@/lib/data";
 import { colors, radius, spacing, useIsTablet, VISIT_STATUS, VISIT_KIND } from "@/lib/theme";
@@ -19,6 +21,8 @@ import { colors, radius, spacing, useIsTablet, VISIT_STATUS, VISIT_KIND } from "
 // Opciones de los filtros (espejo del enum de `visits`).
 const KIND_FILTERS = ["visitor", "service", "employee", "resident", "provider", "event"] as const;
 const STATUS_FILTERS = ["pending", "authorized", "inside", "finished", "denied"] as const;
+
+type ReportMode = "incident" | "notify" | "urgent";
 
 // Pantalla 1 — Visitas del día. Header naranja a todo lo ancho con buscador,
 // filtros pill y accesos rápidos (QR Auto / QR Caminando / hamburguesa /
@@ -37,6 +41,12 @@ export default function VisitasScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
   const [actingId, setActingId] = React.useState<string | null>(null);
+
+  // Modal "Reportar visita" — guarda la visita objetivo y el modo elegido.
+  const [reportTarget, setReportTarget] = React.useState<VisitItem | null>(null);
+  const [reportMode, setReportMode] = React.useState<ReportMode | null>(null);
+  const [reportText, setReportText] = React.useState("");
+  const [reportBusy, setReportBusy] = React.useState(false);
 
   const load = React.useCallback(async () => {
     const data = await getTodayVisits(search, kind ?? undefined, status ?? undefined);
@@ -59,10 +69,61 @@ export default function VisitasScreen() {
     startTransition(() => { load(); });
   }
 
-  // QR Auto = vehicular, QR Caminando = peatonal. La pantalla /qr permite
-  // captura manual de folio (la cámara queda como stub honesto por ahora).
+  // QR Auto = vehicular, QR Caminando = peatonal. La pantalla /qr abre la
+  // cámara real (expo-camera) y permite captura manual como fallback.
   function openQr(modo: "auto" | "walking") {
     router.push(`/(app)/qr?modo=${modo}`);
+  }
+
+  // Abre el modal de "Reportar visita" para una fila concreta.
+  function openReport(item: VisitItem) {
+    setReportTarget(item);
+    setReportMode(null);
+    setReportText("");
+  }
+
+  function chooseReportMode(mode: ReportMode) {
+    if (!reportTarget) return;
+    setReportMode(mode);
+    if (mode === "incident") setReportText("");
+    else if (mode === "notify") setReportText(`El visitante ${reportTarget.who} está en la caseta`);
+    else setReportText(`Se requiere tu atención: visita de ${reportTarget.who}`);
+  }
+
+  function closeReport() {
+    setReportTarget(null);
+    setReportMode(null);
+    setReportText("");
+  }
+
+  async function submitReport() {
+    if (!reportTarget || !reportMode) return;
+    const text = reportText.trim();
+    if (reportMode === "incident" && !text) {
+      Alert.alert("Falta el motivo", "Escribe el motivo de la incidencia.");
+      return;
+    }
+    setReportBusy(true);
+    let result: { error?: string };
+    let okMsg = "";
+    if (reportMode === "incident") {
+      result = await reportIncident(reportTarget.id, text);
+      okMsg = "Incidencia reportada";
+    } else if (reportMode === "notify") {
+      result = await notifyHouseResident(reportTarget.id, text || undefined);
+      okMsg = "Aviso enviado al colono";
+    } else {
+      result = await notifyHouseResidentUrgent(reportTarget.id, text || undefined);
+      okMsg = "Alerta enviada al responsable";
+    }
+    setReportBusy(false);
+    if (result.error) {
+      Alert.alert("No se pudo completar", result.error);
+      return;
+    }
+    closeReport();
+    Alert.alert(okMsg, "Quedó registrado.");
+    startTransition(() => { load(); });
   }
 
   return (
@@ -206,7 +267,7 @@ export default function VisitasScreen() {
               onDeny={() => runAction(item.id, () => denyVisit(item.id))}
               onAccess={() => runAction(item.id, () => giveAccess(item.id))}
               onLeave={() => runAction(item.id, () => leaveVisit(item.id))}
-              onReport={() => runAction(item.id, () => reportVisit(item.id))}
+              onReport={() => openReport(item)}
             />
           )}
         />
@@ -220,6 +281,88 @@ export default function VisitasScreen() {
       >
         <Plus color="#fff" size={28} />
       </Pressable>
+
+      {/* Modal "Reportar visita" — paso 1: 3 opciones; paso 2: formulario */}
+      <Modal
+        visible={!!reportTarget}
+        transparent
+        animationType="fade"
+        onRequestClose={closeReport}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={closeReport}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            {reportTarget && reportMode === null && (
+              <>
+                <Text style={styles.modalTitle}>Reportar visita</Text>
+                <Text style={styles.modalHint}>
+                  {reportTarget.subject || reportTarget.who} · Folio {reportTarget.folio ?? "—"}
+                </Text>
+                <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
+                  <ReportOption
+                    icon={AlertTriangle}
+                    title="Reportar incidencia"
+                    hint="Registrar un motivo de incidente formal"
+                    tone="red"
+                    onPress={() => chooseReportMode("incident")}
+                  />
+                  <ReportOption
+                    icon={Bell}
+                    title="Anunciar al colono"
+                    hint="Avisar al residente que la visita llegó"
+                    tone="brand"
+                    onPress={() => chooseReportMode("notify")}
+                  />
+                  <ReportOption
+                    icon={BellRing}
+                    title="Avisar al responsable"
+                    hint="Notificación urgente — requiere atención"
+                    tone="amber"
+                    onPress={() => chooseReportMode("urgent")}
+                  />
+                </View>
+                <View style={[styles.modalActions, { marginTop: spacing.md }]}>
+                  <Pressable style={styles.modalBtnGhost} onPress={closeReport}>
+                    <Text style={{ color: colors.text, fontWeight: "700" }}>Cerrar</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+            {reportTarget && reportMode !== null && (
+              <>
+                <Text style={styles.modalTitle}>
+                  {reportMode === "incident" ? "Reportar incidencia"
+                    : reportMode === "notify" ? "Anunciar al colono"
+                    : "Avisar al responsable"}
+                </Text>
+                <Text style={styles.modalHint}>
+                  {reportMode === "incident"
+                    ? "Describe el motivo del incidente."
+                    : reportMode === "notify"
+                    ? "Mensaje que verá el residente."
+                    : "Mensaje urgente para el residente."}
+                </Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={reportText}
+                  onChangeText={setReportText}
+                  placeholder={reportMode === "incident" ? "Ej. Placa no coincide" : "Mensaje"}
+                  placeholderTextColor={colors.textFaint}
+                  multiline
+                  numberOfLines={4}
+                />
+                <View style={styles.modalActions}>
+                  <Pressable style={styles.modalBtnGhost} onPress={() => { setReportMode(null); setReportText(""); }}>
+                    <Text style={{ color: colors.text, fontWeight: "700" }}>Atrás</Text>
+                  </Pressable>
+                  <Pressable style={styles.modalBtnPrimary} onPress={submitReport} disabled={reportBusy}>
+                    {reportBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800" }}>Guardar</Text>}
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -334,6 +477,33 @@ function ActionBtn({
   );
 }
 
+function ReportOption({
+  icon: Icon, title, hint, tone, onPress,
+}: {
+  icon: LucideIcon;
+  title: string;
+  hint: string;
+  tone: "red" | "brand" | "amber";
+  onPress: () => void;
+}) {
+  const color = tone === "red" ? colors.red : tone === "amber" ? colors.amber : colors.brand;
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.reportOption, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+      onPress={onPress}
+    >
+      <View style={[styles.reportOptionIcon, { backgroundColor: color + "22" }]}>
+        <Icon color={color} size={22} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.reportOptionTitle}>{title}</Text>
+        <Text style={styles.reportOptionHint}>{hint}</Text>
+      </View>
+      <ChevronRight color={colors.textFaint} size={20} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
 
@@ -443,6 +613,45 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8,
   },
   actionText: { fontSize: 13, fontWeight: "700" },
+
+  // Modal
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(15,23,42,0.55)", justifyContent: "center", padding: spacing.xl },
+  modalCard: {
+    backgroundColor: colors.card, borderRadius: radius.xl, padding: spacing.xl, gap: spacing.sm,
+    maxWidth: 520, alignSelf: "center", width: "100%",
+    shadowColor: "#0f172a", shadowOpacity: 0.25, shadowRadius: 24, shadowOffset: { width: 0, height: 12 },
+    elevation: 12,
+  },
+  modalTitle: { fontSize: 20, fontWeight: "800", color: colors.text },
+  modalHint: { color: colors.textMuted, fontSize: 13 },
+  modalInput: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.md, fontSize: 14, color: colors.text,
+    backgroundColor: colors.bg, minHeight: 110, textAlignVertical: "top", marginTop: spacing.sm,
+  },
+  modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: spacing.sm, marginTop: spacing.md },
+  modalBtnGhost: {
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff",
+  },
+  modalBtnPrimary: {
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brand,
+  },
+
+  reportOption: {
+    flexDirection: "row", alignItems: "center", gap: spacing.md,
+    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
+    padding: spacing.md, borderRadius: radius.lg,
+  },
+  reportOptionIcon: {
+    width: 44, height: 44, borderRadius: radius.pill,
+    alignItems: "center", justifyContent: "center",
+  },
+  reportOptionTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
+  reportOptionHint: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
 
   // FAB
   fab: {

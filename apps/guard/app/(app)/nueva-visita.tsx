@@ -1,14 +1,16 @@
 import * as React from "react";
 import {
   View, Text, TextInput, Pressable, ScrollView, StyleSheet, ActivityIndicator, Alert,
+  Image, Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ChevronLeft, ChevronRight, Camera, Check } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, Camera, Check, X, RefreshCw } from "lucide-react-native";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { useBooth } from "@/lib/booth";
 import {
   getHouses, getServices, getTransports, getEmployeesByHouse, createGuardVisit,
-  getVisitFolioById,
+  getVisitFolioById, uploadVisitPhoto,
   type HouseRow, type ServiceRow, type TransportRow, type EmployeeRow,
 } from "@/lib/data";
 import { colors, radius, spacing, useIsTablet } from "@/lib/theme";
@@ -24,7 +26,25 @@ const KIND_OPTIONS: { key: VisitKindUI; label: string; hint: string }[] = [
   { key: "resident", label: "Colono", hint: "Ingreso de un residente" },
 ];
 
-const STEP_LABELS = ["Tipo", "Domicilio", "Datos", "Transporte", "Foto", "Confirmar"] as const;
+const STEP_LABELS = ["Tipo", "Domicilio", "Datos", "Transporte", "Fotos", "Confirmar"] as const;
+
+// Slots de fotos por sección. Visitante: 2 (frontal + identificación).
+// Vehículo: 4 (frontal, trasera, lateral izq, lateral der). Las claves se usan
+// como `label` al guardar (queda anexada al url con #anchor).
+const VISITOR_PHOTO_SLOTS = [
+  { key: "frontal", label: "Frontal" },
+  { key: "id", label: "Identificación" },
+] as const;
+const VEHICLE_PHOTO_SLOTS = [
+  { key: "front", label: "Frente" },
+  { key: "back", label: "Trasera" },
+  { key: "left", label: "Lateral izq." },
+  { key: "right", label: "Lateral der." },
+] as const;
+
+type PhotoSlotKey =
+  | (typeof VISITOR_PHOTO_SLOTS)[number]["key"]
+  | (typeof VEHICLE_PHOTO_SLOTS)[number]["key"];
 
 export default function NuevaVisitaScreen() {
   const router = useRouter();
@@ -41,7 +61,6 @@ export default function NuevaVisitaScreen() {
   const [houseSearch, setHouseSearch] = React.useState("");
 
   const [visitorName, setVisitorName] = React.useState("");
-  const [visitorCurp, setVisitorCurp] = React.useState("");
   const [visitorPhone, setVisitorPhone] = React.useState("");
   const [subject, setSubject] = React.useState("");
 
@@ -51,6 +70,17 @@ export default function NuevaVisitaScreen() {
 
   const [transportId, setTransportId] = React.useState<string | null>(null);
   const [plateNumber, setPlateNumber] = React.useState("");
+
+  // Fotos capturadas (uri local). Mapa { slotKey: uri }. Las usamos al final
+  // del wizard para subir a `visit_photos`.
+  const [photos, setPhotos] = React.useState<Partial<Record<PhotoSlotKey, string>>>({});
+  // Slot activo en el modal de cámara (null = cerrado).
+  const [activeSlot, setActiveSlot] = React.useState<{
+    key: PhotoSlotKey; label: string;
+  } | null>(null);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const cameraRef = React.useRef<CameraView | null>(null);
+  const [shooting, setShooting] = React.useState(false);
 
   const [busy, setBusy] = React.useState(false);
   // Cuando el usuario intenta avanzar sin completar el paso, encendemos el flag
@@ -86,6 +116,15 @@ export default function NuevaVisitaScreen() {
   const selectedTransport = React.useMemo(() => transports.find((t) => t.id === transportId) ?? null, [transports, transportId]);
   const transportNeedsPlate = selectedTransport?.plates ?? false;
 
+  // Foto del visitante obligatoria sólo para kind=visitor (los demás no se
+  // identifican como personas físicas). Foto del vehículo se exige sólo si el
+  // transporte requiere placas (i.e. lleva auto).
+  const requiresVisitorPhotos = kind === "visitor";
+  const requiresVehiclePhotos = transportNeedsPlate;
+
+  const visitorPhotosCount = VISITOR_PHOTO_SLOTS.filter((s) => photos[s.key]).length;
+  const vehiclePhotosCount = VEHICLE_PHOTO_SLOTS.filter((s) => photos[s.key]).length;
+
   // Validación por paso — flags individuales para señalar el campo erróneo.
   const errVisitorName = kind === "visitor" && visitorName.trim().length < 2;
   const errService = kind === "service" && !serviceId;
@@ -93,6 +132,8 @@ export default function NuevaVisitaScreen() {
   const errHouse = !houseId;
   const errTransport = !transportId;
   const errPlate = transportNeedsPlate && plateNumber.trim().length < 2;
+  const errVisitorPhotos = requiresVisitorPhotos && visitorPhotosCount < 2;
+  const errVehiclePhotos = requiresVehiclePhotos && vehiclePhotosCount < 4;
 
   function canAdvance(): boolean {
     switch (step) {
@@ -107,7 +148,10 @@ export default function NuevaVisitaScreen() {
         if (errTransport) return false;
         if (errPlate) return false;
         return true;
-      case 5: return true; // foto = stub
+      case 5:
+        if (errVisitorPhotos) return false;
+        if (errVehiclePhotos) return false;
+        return true;
       default: return true;
     }
   }
@@ -128,11 +172,51 @@ export default function NuevaVisitaScreen() {
     "Domicilio destino",
     "Datos del ingreso",
     "Transporte",
-    "Foto del visitante",
+    "Fotos de la visita",
     "Confirmar",
   ];
 
-  async function finish(giveAccessNow: boolean) {
+  // Abre el modal de cámara para un slot específico.
+  async function openCamera(slot: { key: PhotoSlotKey; label: string }) {
+    if (!cameraPermission?.granted) {
+      const res = await requestCameraPermission();
+      if (!res.granted) {
+        Alert.alert(
+          "Cámara",
+          "No se otorgó permiso para usar la cámara. Actívalo en Ajustes para tomar fotos.",
+        );
+        return;
+      }
+    }
+    setActiveSlot(slot);
+  }
+
+  // Toma la foto y la guarda contra el slot activo.
+  async function takePhoto() {
+    if (!cameraRef.current || !activeSlot) return;
+    setShooting(true);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.7, base64: false });
+      if (photo?.uri) {
+        setPhotos((p) => ({ ...p, [activeSlot.key]: photo.uri }));
+      }
+    } catch (e) {
+      Alert.alert("No se pudo tomar la foto", e instanceof Error ? e.message : "Error desconocido");
+    } finally {
+      setShooting(false);
+      setActiveSlot(null);
+    }
+  }
+
+  function clearPhoto(slot: PhotoSlotKey) {
+    setPhotos((p) => {
+      const next = { ...p };
+      delete next[slot];
+      return next;
+    });
+  }
+
+  async function finish() {
     if (!booth) { Alert.alert("Sin caseta", "Selecciona una caseta antes de crear la visita."); return; }
     if (!houseId) { Alert.alert("Falta domicilio", "Selecciona un domicilio destino."); return; }
     setBusy(true);
@@ -140,7 +224,6 @@ export default function NuevaVisitaScreen() {
       kind,
       houseId,
       visitorName: kind === "visitor" ? visitorName : undefined,
-      visitorCurp: kind === "visitor" ? visitorCurp : null,
       visitorPhone: kind === "visitor" ? visitorPhone : null,
       serviceId: kind === "service" ? serviceId : null,
       employeeId: kind === "employee" ? employeeId : null,
@@ -148,23 +231,32 @@ export default function NuevaVisitaScreen() {
       plateNumber: transportNeedsPlate ? plateNumber : null,
       subject,
       details: kind === "service" && selectedService?.hasDetails ? serviceDetails : null,
-      giveAccessNow,
+      giveAccessNow: true,
     }, booth.id);
-    setBusy(false);
-    if (res.error) {
-      Alert.alert("No se pudo crear la visita", res.error);
+    if (res.error || !res.visitId) {
+      setBusy(false);
+      Alert.alert("No se pudo crear la visita", res.error ?? "Error desconocido");
       return;
     }
-    // Después del insert, consultamos el folio real generado por la BD (trigger
-    // / default). Si no se puede leer, mostramos mensaje genérico.
-    let folio: string | null = null;
-    if (res.visitId) {
-      folio = await getVisitFolioById(res.visitId);
+
+    // Subir fotos capturadas. Si alguna falla, mostramos un aviso pero NO
+    // bloqueamos: la visita ya está creada. Si Storage no está configurado,
+    // `uploadVisitPhoto` cae al fallback y persiste el URI local en `visit_photos`.
+    const photoEntries = Object.entries(photos) as [PhotoSlotKey, string][];
+    const photoErrors: string[] = [];
+    for (const [slot, uri] of photoEntries) {
+      const label = [...VISITOR_PHOTO_SLOTS, ...VEHICLE_PHOTO_SLOTS].find((s) => s.key === slot)?.label ?? slot;
+      const up = await uploadVisitPhoto(res.visitId, uri, label);
+      if (up.error) photoErrors.push(`${label}: ${up.error}`);
     }
-    const baseMsg = giveAccessNow
-      ? "La visita quedó registrada con acceso."
-      : "La visita quedó autorizada.";
-    const msg = folio ? `${baseMsg}\n\nFolio: ${folio}` : baseMsg;
+    const folio = await getVisitFolioById(res.visitId);
+    setBusy(false);
+
+    const baseMsg = "La visita quedó registrada con acceso.";
+    let msg = folio ? `${baseMsg}\n\nFolio: ${folio}` : baseMsg;
+    if (photoErrors.length) {
+      msg += `\n\nAlgunas fotos no se subieron:\n${photoErrors.join("\n")}`;
+    }
     Alert.alert(
       folio ? `Visita creada · ${folio}` : "Visita registrada",
       msg,
@@ -284,12 +376,12 @@ export default function NuevaVisitaScreen() {
                 {showErrors && errVisitorName && (
                   <Text style={styles.errorText}>Escribe el nombre completo (mínimo 2 caracteres).</Text>
                 )}
-                <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>CURP (opcional)</Text>
-                <TextInput style={styles.input} value={visitorCurp} onChangeText={setVisitorCurp}
-                  placeholder="CURP" placeholderTextColor={colors.textFaint} autoCapitalize="characters" />
                 <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>Teléfono (opcional)</Text>
                 <TextInput style={styles.input} value={visitorPhone} onChangeText={setVisitorPhone}
                   placeholder="10 dígitos" placeholderTextColor={colors.textFaint} keyboardType="phone-pad" />
+                <Text style={styles.helperText}>
+                  La identificación se captura como foto en el paso 5.
+                </Text>
               </>
             )}
             {kind === "service" && (
@@ -370,22 +462,43 @@ export default function NuevaVisitaScreen() {
         )}
 
         {step === 5 && (
-          <Step n="05" title="Foto del visitante" hint="Captura opcional (próximamente)">
-            <View style={styles.photoStub}>
-              <View style={styles.photoIcon}>
-                <Camera color={colors.brand} size={48} />
+          <Step n="05" title="Fotos de la visita" hint="Captura desde la cámara real">
+            {requiresVisitorPhotos && (
+              <PhotoSection
+                title="Visitante"
+                hint="Frontal del rostro + identificación (2 obligatorias)"
+                slots={VISITOR_PHOTO_SLOTS as unknown as { key: PhotoSlotKey; label: string }[]}
+                photos={photos}
+                onCapture={openCamera}
+                onClear={clearPhoto}
+                showError={showErrors && errVisitorPhotos}
+                errorMessage="Captura las 2 fotos del visitante."
+              />
+            )}
+            {requiresVehiclePhotos && (
+              <View style={{ marginTop: spacing.lg }}>
+                <PhotoSection
+                  title="Vehículo"
+                  hint="Frente, trasera y ambos laterales (4 obligatorias)"
+                  slots={VEHICLE_PHOTO_SLOTS as unknown as { key: PhotoSlotKey; label: string }[]}
+                  photos={photos}
+                  onCapture={openCamera}
+                  onClear={clearPhoto}
+                  showError={showErrors && errVehiclePhotos}
+                  errorMessage="Captura las 4 fotos del vehículo."
+                />
               </View>
-              <Text style={styles.photoStubText}>Captura desde cámara — próximamente.</Text>
-              <Pressable style={styles.simBtn}
-                onPress={() => Alert.alert("Cámara", "La captura desde cámara se habilita en próxima versión.")}>
-                <Text style={styles.simBtnText}>Simular captura</Text>
-              </Pressable>
-            </View>
+            )}
+            {!requiresVisitorPhotos && !requiresVehiclePhotos && (
+              <Text style={styles.faint}>
+                Este tipo de visita no requiere fotos. Puedes continuar.
+              </Text>
+            )}
           </Step>
         )}
 
         {step === 6 && (
-          <Step n="06" title="Confirmar" hint="Revisa los datos y crea la visita">
+          <Step n="06" title="Confirmar" hint="Revisa los datos y registra la visita">
             <SummaryRow label="Tipo" value={KIND_OPTIONS.find((o) => o.key === kind)?.label ?? kind} />
             <SummaryRow label="Domicilio" value={selectedHouse?.address ?? "—"} />
             {kind === "visitor" && <SummaryRow label="Visitante" value={visitorName || "—"} />}
@@ -396,18 +509,20 @@ export default function NuevaVisitaScreen() {
             <SummaryRow label="Transporte" value={selectedTransport?.name ?? "—"} />
             {transportNeedsPlate && <SummaryRow label="Placa" value={plateNumber.toUpperCase() || "—"} />}
             {subject && <SummaryRow label="Asunto" value={subject} />}
+            {requiresVisitorPhotos && (
+              <SummaryRow label="Fotos visitante" value={`${visitorPhotosCount} de 2`} />
+            )}
+            {requiresVehiclePhotos && (
+              <SummaryRow label="Fotos vehículo" value={`${vehiclePhotosCount} de 4`} />
+            )}
             <SummaryRow label="Caseta" value={booth?.name ?? "—"} />
 
             <View style={[styles.actions, { marginTop: spacing.lg }]}>
               <Pressable style={[styles.primaryBtn, { backgroundColor: colors.brand }]}
-                onPress={() => finish(true)} disabled={busy}>
+                onPress={finish} disabled={busy}>
                 {busy ? <ActivityIndicator color="#fff" /> : (
-                  <Text style={styles.primaryBtnText}>Crear y dar acceso</Text>
+                  <Text style={styles.primaryBtnText}>Registrar y dar acceso</Text>
                 )}
-              </Pressable>
-              <Pressable style={[styles.primaryBtn, styles.primaryBtnGhost]}
-                onPress={() => finish(false)} disabled={busy}>
-                <Text style={[styles.primaryBtnText, { color: colors.brand }]}>Solo autorizar</Text>
               </Pressable>
             </View>
           </Step>
@@ -438,6 +553,95 @@ export default function NuevaVisitaScreen() {
           </View>
         </View>
       )}
+
+      {/* Modal de cámara — full screen, con disparador grande y botón cerrar */}
+      <Modal
+        visible={!!activeSlot}
+        animationType="slide"
+        onRequestClose={() => setActiveSlot(null)}
+      >
+        <View style={styles.cameraRoot}>
+          {activeSlot && cameraPermission?.granted ? (
+            <CameraView
+              ref={cameraRef}
+              style={StyleSheet.absoluteFill}
+              facing="back"
+            />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, styles.cameraNoPerm]}>
+              <Camera color="#fff" size={48} />
+              <Text style={styles.cameraNoPermText}>Sin permiso de cámara</Text>
+            </View>
+          )}
+          <View style={[styles.cameraTop, { paddingTop: insets.top + spacing.sm }]}>
+            <Pressable style={styles.cameraCloseBtn} onPress={() => setActiveSlot(null)} hitSlop={8}>
+              <X color="#fff" size={22} />
+            </Pressable>
+            <Text style={styles.cameraTitle}>{activeSlot?.label}</Text>
+            <View style={{ width: 38 }} />
+          </View>
+          <View style={[styles.cameraBottom, { paddingBottom: insets.bottom + spacing.lg }]}>
+            <Pressable
+              style={[styles.shutter, shooting && { opacity: 0.6 }]}
+              onPress={takePhoto}
+              disabled={shooting || !cameraPermission?.granted}
+            >
+              {shooting ? <ActivityIndicator color="#fff" /> : <View style={styles.shutterInner} />}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+function PhotoSection({
+  title, hint, slots, photos, onCapture, onClear, showError, errorMessage,
+}: {
+  title: string;
+  hint: string;
+  slots: { key: PhotoSlotKey; label: string }[];
+  photos: Partial<Record<PhotoSlotKey, string>>;
+  onCapture: (slot: { key: PhotoSlotKey; label: string }) => void;
+  onClear: (key: PhotoSlotKey) => void;
+  showError: boolean;
+  errorMessage: string;
+}) {
+  return (
+    <View>
+      <Text style={styles.photoSectionTitle}>{title}</Text>
+      <Text style={styles.photoSectionHint}>{hint}</Text>
+      <View style={styles.photoGrid}>
+        {slots.map((slot) => {
+          const uri = photos[slot.key];
+          return (
+            <View key={slot.key} style={styles.photoSlot}>
+              {uri ? (
+                <>
+                  <Image source={{ uri }} style={styles.photoImg} />
+                  <View style={styles.photoOverlay}>
+                    <Pressable style={styles.photoOverlayBtn} onPress={() => onCapture(slot)}>
+                      <RefreshCw color="#fff" size={14} />
+                      <Text style={styles.photoOverlayText}>Repetir</Text>
+                    </Pressable>
+                    <Pressable style={styles.photoOverlayBtn} onPress={() => onClear(slot.key)}>
+                      <X color="#fff" size={14} />
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <Pressable style={styles.photoEmpty} onPress={() => onCapture(slot)}>
+                  <Camera color={colors.brand} size={28} />
+                  <Text style={styles.photoEmptyLabel}>{slot.label}</Text>
+                  <Text style={styles.photoEmptyHint}>Tomar foto</Text>
+                </Pressable>
+              )}
+              <Text style={styles.photoSlotLabel}>{slot.label}</Text>
+            </View>
+          );
+        })}
+      </View>
+      {showError && <Text style={styles.errorText}>{errorMessage}</Text>}
     </View>
   );
 }
@@ -539,6 +743,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   gridRow2: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   fieldLabel: { fontSize: 13, fontWeight: "700", color: colors.textMuted, marginBottom: 6 },
+  helperText: { fontSize: 12, color: colors.textFaint, marginTop: spacing.sm, fontStyle: "italic" },
   chip: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 9, backgroundColor: "#fff" },
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
   chipText: { color: colors.text, fontSize: 13, fontWeight: "700" },
@@ -568,17 +773,62 @@ const styles = StyleSheet.create({
   houseCardOn: { backgroundColor: colors.brand, borderColor: colors.brand },
   houseAddr: { fontSize: 14, fontWeight: "800", color: colors.text },
   houseMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  photoStub: { alignItems: "center", paddingVertical: spacing.xl },
-  photoIcon: {
-    width: 96, height: 96, borderRadius: radius.pill,
-    backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center",
+
+  // Sección de fotos
+  photoSectionTitle: { fontSize: 14, fontWeight: "800", color: colors.text, marginBottom: 2 },
+  photoSectionHint: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm },
+  photoGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  photoSlot: { width: "47%", gap: 4 },
+  photoEmpty: {
+    aspectRatio: 1, borderRadius: radius.md,
+    backgroundColor: colors.brandSoft,
+    borderWidth: 2, borderColor: colors.brand, borderStyle: "dashed",
+    alignItems: "center", justifyContent: "center", gap: 4,
   },
-  photoStubText: { color: colors.textMuted, fontSize: 14, marginTop: spacing.md, textAlign: "center" },
-  simBtn: {
-    backgroundColor: colors.brand, borderRadius: radius.pill,
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2, marginTop: spacing.md,
+  photoEmptyLabel: { color: colors.brandDark, fontSize: 13, fontWeight: "800" },
+  photoEmptyHint: { color: colors.textMuted, fontSize: 11 },
+  photoImg: { aspectRatio: 1, borderRadius: radius.md, backgroundColor: "#000" },
+  photoOverlay: {
+    position: "absolute", bottom: 26, left: 4, right: 4,
+    flexDirection: "row", gap: 4, justifyContent: "flex-end",
   },
-  simBtnText: { color: "#fff", fontSize: 13, fontWeight: "800" },
+  photoOverlayBtn: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "rgba(15,23,42,0.75)",
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.pill,
+  },
+  photoOverlayText: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  photoSlotLabel: { fontSize: 11, color: colors.textMuted, textAlign: "center", fontWeight: "600" },
+
+  // Cámara modal
+  cameraRoot: { flex: 1, backgroundColor: "#000" },
+  cameraNoPerm: { alignItems: "center", justifyContent: "center", gap: spacing.md, backgroundColor: "#000" },
+  cameraNoPermText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  cameraTop: {
+    position: "absolute", top: 0, left: 0, right: 0,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  cameraCloseBtn: {
+    width: 38, height: 38, borderRadius: radius.pill,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.18)",
+  },
+  cameraTitle: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  cameraBottom: {
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    alignItems: "center", paddingTop: spacing.lg,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  shutter: {
+    width: 78, height: 78, borderRadius: radius.pill,
+    backgroundColor: colors.brand,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 4, borderColor: "#fff",
+  },
+  shutterInner: { width: 56, height: 56, borderRadius: radius.pill, backgroundColor: "#fff" },
+
   summaryRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.sm + 2, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.md },
   summaryLabel: { color: colors.textMuted, fontSize: 13 },
   summaryValue: { color: colors.text, fontSize: 14, fontWeight: "700", maxWidth: "60%", textAlign: "right" },

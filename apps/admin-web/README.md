@@ -11,6 +11,21 @@ npm run dev      # http://localhost:3000  (redirige a /dashboard)
 ```
 Build de producción: `npm run build && npm run start`.
 
+## Despliegue en Netlify (alternativa a Vercel)
+El monorepo incluye `netlify.toml` en la raíz apuntando a esta app. El middleware de
+sesión Supabase (`src/middleware.ts`) se ejecuta como Edge Function; las Server Actions
+como Functions.
+
+```bash
+# Desde la raíz del repo
+npx netlify link          # vincular al sitio (una vez)
+npx netlify env:import apps/admin-web/.env.local   # opcional: subir envs
+npx netlify deploy --build                    # preview
+npx netlify deploy --prod --build             # producción
+```
+
+Variables obligatorias en Netlify: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+
 ## Estructura
 ```
 src/

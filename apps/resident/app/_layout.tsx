@@ -6,6 +6,9 @@ import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { colors } from "@/lib/theme";
 
+// Rutas públicas (accesibles sin sesión). Cualquier otra ruta requiere sesión.
+const PUBLIC_ROUTES = new Set(["login", "recuperar"]);
+
 // Redirige entre login y la app según haya sesión.
 function Gate() {
   const { session, loading } = useAuth();
@@ -14,9 +17,17 @@ function Gate() {
 
   React.useEffect(() => {
     if (loading) return;
-    const inAuthGroup = segments[0] === "(tabs)";
-    if (!session && inAuthGroup) router.replace("/login");
-    else if (session && !inAuthGroup) router.replace("/(tabs)");
+    const root = segments[0] ?? "";
+    const inPublicRoute = PUBLIC_ROUTES.has(root);
+    // Sin sesión: solo se permite estar en rutas públicas; cualquier otra → login.
+    if (!session && !inPublicRoute) {
+      router.replace("/login");
+      return;
+    }
+    // Con sesión: si estás en una ruta pública (login/recuperar), te mando al dashboard.
+    if (session && inPublicRoute) {
+      router.replace("/(tabs)");
+    }
   }, [session, loading, segments]);
 
   if (loading) {

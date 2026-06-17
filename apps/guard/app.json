@@ -19,7 +19,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir acceso a la cámara para escanear códigos QR y tomar fotos de visitas."
+        }
+      ]
     ],
     "extra": {
       "supabaseUrl": "https://ljzzuwltgezvwpelavdz.supabase.co",
