@@ -1,28 +1,15 @@
 import {
-  LayoutDashboard,
-  DoorOpen,
-  Building2,
-  Users,
-  Car,
-  MapPinned,
-  ShieldCheck,
-  Wrench,
-  Megaphone,
-  BarChart3,
-  MessageSquareWarning,
-  Ban,
-  Settings,
-  type LucideIcon,
+  LayoutDashboard, DoorOpen, Building2, Users, Car, MapPinned, ShieldCheck, Wrench,
+  Megaphone, BarChart3, MessageSquareWarning, Ban, Settings, Truck, Building, Video,
+  Tag, Tags, AlertTriangle, MapPin, type LucideIcon,
 } from "lucide-react";
 
 export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
-  /** Roles que ven este módulo. */
   roles?: string[];
 }
-
 export interface NavGroup {
   title: string;
   items: NavItem[];
@@ -50,16 +37,28 @@ export const NAV: NavGroup[] = [
     items: [
       { label: "Avisos", href: "/avisos", icon: Megaphone },
       { label: "Sugerencias y quejas", href: "/sugerencias", icon: MessageSquareWarning },
+      { label: "Amenidades", href: "/m/espacios", icon: MapPin },
+      { label: "Categorías de tickets", href: "/m/categorias-ticket", icon: Tags },
+      { label: "Incidentes", href: "/m/incidentes", icon: AlertTriangle },
       { label: "Reportes", href: "/reportes", icon: BarChart3 },
+    ],
+  },
+  {
+    title: "Catálogos",
+    items: [
+      { label: "Servicios", href: "/m/servicios", icon: Wrench },
+      { label: "Transportes", href: "/m/transportes", icon: Truck },
+      { label: "Proveedores", href: "/m/proveedores", icon: Building },
+      { label: "Etiquetas (TAGs)", href: "/m/etiquetas", icon: Tag },
     ],
   },
   {
     title: "Configuración",
     items: [
       { label: "Sedes", href: "/sedes", icon: MapPinned },
-      { label: "Casetas", href: "/casetas", icon: ShieldCheck },
-      { label: "Servicios", href: "/servicios", icon: Wrench },
-      { label: "Ajustes", href: "/configuracion", icon: Settings },
+      { label: "Casetas", href: "/m/casetas", icon: ShieldCheck },
+      { label: "Cámaras IP", href: "/m/camaras", icon: Video },
+      { label: "Configurar residencial", href: "/configuracion", icon: Settings },
     ],
   },
 ];
