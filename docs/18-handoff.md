@@ -12,8 +12,8 @@ Léelo primero al retomar.
 | Recurso | Valor |
 |---|---|
 | **Emulador / portal en vivo** | https://admin-web-lac-six.vercel.app |
-| **Login demo (admin)** | `admin@kg-demo.mx` / `KgVisit2026!` (cambiar antes de prod) |
-| **Login demo (apps)** | residente `jperez@kg-demo.mx` · guardia `guardia@kg-demo.mx` — ambos `KgVisit2026!` (RLS por rol, migración 0006) |
+| **Login DEMO CORTO (recomendado para pruebas)** | admin `a@k.mx` · residente `r@k.mx` · guardia `g@k.mx` — **password `123456`** para los 3 (mínimo de Supabase Auth). |
+| **Login demo largo (histórico)** | admin `admin@kg-demo.mx` · residente `jperez@kg-demo.mx` · guardia `guardia@kg-demo.mx` — `KgVisit2026!` |
 | **GitHub** | `git@github.com:rasz-kg/kg-visit-V2.git` (rama `main`) |
 | **Supabase** | proyecto `kg-visit-V2`, ref `ljzzuwltgezvwpelavdz`, us-east-2 |
 | **Stack** | Next.js 16 + React 19 + Tailwind v4 + @supabase/ssr · Vercel |

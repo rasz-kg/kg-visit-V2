@@ -35,7 +35,10 @@ export default function VisitantesScreen() {
         text: "Eliminar", style: "destructive", onPress: async () => {
           const r = await removeFrequentVisitor(it.id);
           if (r.error) Alert.alert("No se pudo eliminar", r.error);
-          else load();
+          else {
+            Alert.alert("Visitante eliminado", `${it.name} ya no está en tus frecuentes.`);
+            load();
+          }
         },
       },
     ]);
@@ -63,8 +66,8 @@ export default function VisitantesScreen() {
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <View style={styles.emptyIcon}><Users color={colors.blue} size={28} /></View>
-              <Text style={styles.empty}>Aún no tienes visitantes registrados.</Text>
-              <Text style={styles.emptyHint}>Toca el botón naranja para agregar uno nuevo.</Text>
+              <Text style={styles.empty}>Sin visitantes todavía</Text>
+              <Text style={styles.emptyHint}>Toca el botón + para agregar tu primer visitante frecuente.</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -127,6 +130,7 @@ function NewVisitorModal({
     );
     setBusy(false);
     if (r.error) { Alert.alert("No se pudo crear", r.error); return; }
+    Alert.alert("Visitante creado", `${name} se agregó a tus visitantes.`);
     onCreated();
   }
 

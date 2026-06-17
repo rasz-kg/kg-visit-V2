@@ -56,7 +56,8 @@ export default function SugerenciasScreen() {
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <View style={styles.emptyIcon}><MessageCircleQuestion color={colors.cyan} size={28} /></View>
-              <Text style={styles.empty}>Aún no tienes sugerencias o quejas.</Text>
+              <Text style={styles.empty}>Sin sugerencias todavía</Text>
+              <Text style={styles.emptyHint}>Toca el botón + para enviar la primera a administración.</Text>
             </View>
           }
           renderItem={({ item }) => {
@@ -118,6 +119,7 @@ function NewTicketModal({
     );
     setBusy(false);
     if (r.error) { Alert.alert("No se pudo crear", r.error); return; }
+    Alert.alert("Sugerencia enviada", "Tu mensaje fue registrado y será atendido por administración.");
     onCreated();
   }
 
@@ -199,6 +201,7 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center", marginBottom: spacing.sm,
   },
   empty: { textAlign: "center", color: colors.text, fontSize: 16, fontWeight: "700" },
+  emptyHint: { textAlign: "center", color: colors.textMuted, fontSize: 13, paddingHorizontal: spacing.xl },
   card: {
     backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg,
     borderWidth: 1, borderColor: colors.border,

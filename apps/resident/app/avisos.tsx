@@ -34,7 +34,13 @@ export default function AvisosScreen() {
           data={notices}
           keyExtractor={(n) => n.id}
           contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 }}
-          ListEmptyComponent={<Text style={styles.empty}>No hay avisos por ahora.</Text>}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyIcon}><Megaphone color={colors.violet} size={28} /></View>
+              <Text style={styles.empty}>Sin avisos todavía</Text>
+              <Text style={styles.emptyHint}>Aquí verás los comunicados de la administración.</Text>
+            </View>
+          }
           renderItem={({ item }) => {
             const tint = KIND_COLOR[item.kind] ?? colors.textMuted;
             return (
@@ -66,7 +72,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   title: { color: colors.text, fontSize: 22, fontWeight: "800" },
-  empty: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl },
+  emptyWrap: { alignItems: "center", paddingTop: spacing.xl * 2, gap: spacing.sm },
+  emptyIcon: {
+    width: 64, height: 64, borderRadius: 32, backgroundColor: colors.violet + "22",
+    alignItems: "center", justifyContent: "center", marginBottom: spacing.sm,
+  },
+  empty: { textAlign: "center", color: colors.text, fontSize: 16, fontWeight: "700" },
+  emptyHint: { textAlign: "center", color: colors.textMuted, fontSize: 13, paddingHorizontal: spacing.xl },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.xl,

@@ -41,7 +41,10 @@ export default function FamiliaresScreen() {
         text: "Quitar", style: "destructive", onPress: async () => {
           const r = await disableFamilyMember(f.id);
           if (r.error) Alert.alert("No se pudo quitar", r.error);
-          else load();
+          else {
+            Alert.alert("Familiar quitado", `${f.name} ya no figura en el departamento.`);
+            load();
+          }
         },
       },
     ]);
@@ -66,7 +69,13 @@ export default function FamiliaresScreen() {
           data={items}
           keyExtractor={(i) => i.id}
           contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}
-          ListEmptyComponent={<Text style={styles.empty}>Aún no hay otros familiares en este domicilio.</Text>}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyIcon}><Users color={colors.blue} size={28} /></View>
+              <Text style={styles.emptyTitle}>Sin familiares todavía</Text>
+              <Text style={styles.emptyHint}>Toca el botón + para agregar un integrante del departamento.</Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={{ flex: 1 }}>
@@ -137,6 +146,7 @@ function FamilyFormModal({
       });
     setBusy(false);
     if (r.error) { Alert.alert("No se pudo guardar", r.error); return; }
+    Alert.alert(editing ? "Familiar actualizado" : "Familiar agregado", `${form.name} se guardó.`);
     onSaved();
   }
 
@@ -206,7 +216,13 @@ const styles = StyleSheet.create({
   },
   title: { color: "#fff", fontSize: 22, fontWeight: "800" },
   subtitle: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
-  empty: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl, paddingHorizontal: spacing.xl },
+  emptyWrap: { alignItems: "center", paddingTop: spacing.xl * 2, gap: spacing.sm },
+  emptyIcon: {
+    width: 64, height: 64, borderRadius: 32, backgroundColor: colors.blue + "22",
+    alignItems: "center", justifyContent: "center", marginBottom: spacing.sm,
+  },
+  emptyTitle: { textAlign: "center", color: colors.text, fontSize: 16, fontWeight: "700" },
+  emptyHint: { textAlign: "center", color: colors.textMuted, fontSize: 13, paddingHorizontal: spacing.xl },
   card: {
     flexDirection: "row", alignItems: "center", gap: spacing.sm,
     backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg,

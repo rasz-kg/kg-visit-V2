@@ -1,19 +1,21 @@
 import * as React from "react";
 import { View, Text, ScrollView, StyleSheet, Pressable, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter, type Href } from "expo-router";
+import { useRouter, useFocusEffect, type Href } from "expo-router";
 import {
   Bell, Users, Megaphone, Briefcase, DoorOpen, CalendarDays, MessageCircleQuestion, Building2, UsersRound,
 } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
+import { getDashboardBadges } from "@/lib/data";
 import { colors, radius, spacing } from "@/lib/theme";
 
-interface Card { key: string; label: string; Icon: typeof Bell; href: Href; tint: string }
+type BadgeKey = "notifications" | "notices";
+interface Card { key: string; label: string; Icon: typeof Bell; href: Href; tint: string; badgeKey?: BadgeKey }
 
 const CARDS: Card[] = [
-  { key: "notificaciones", label: "Notificaciones", Icon: Bell, href: "/notificaciones", tint: colors.brand },
+  { key: "notificaciones", label: "Notificaciones", Icon: Bell, href: "/notificaciones", tint: colors.brand, badgeKey: "notifications" },
   { key: "visitantes", label: "Visitantes", Icon: Users, href: "/visitantes", tint: colors.blue },
-  { key: "avisos", label: "Avisos", Icon: Megaphone, href: "/avisos", tint: colors.violet },
+  { key: "avisos", label: "Avisos", Icon: Megaphone, href: "/avisos", tint: colors.violet, badgeKey: "notices" },
   { key: "staff", label: "Staff", Icon: Briefcase, href: "/staff", tint: colors.amber },
   { key: "visitas", label: "Visitas", Icon: DoorOpen, href: "/(tabs)/visitas", tint: colors.green },
   { key: "reservaciones", label: "Reservaciones", Icon: Building2, href: "/reservaciones", tint: colors.pink },
@@ -34,8 +36,25 @@ export default function HomeScreen() {
   const gap = spacing.md;
   const colWidth = (width - horizontalPad * 2 - gap * (cols - 1)) / cols;
 
+  const [badges, setBadges] = React.useState<{ notifications: number; notices: number }>({
+    notifications: 0, notices: 0,
+  });
+
+  // Refresca conteos cada vez que el dashboard recibe foco.
+  useFocusEffect(
+    React.useCallback(() => {
+      let active = true;
+      getDashboardBadges(profile?.id ?? null).then((b) => { if (active) setBadges(b); });
+      return () => { active = false; };
+    }, [profile?.id]),
+  );
+
   function open(card: Card) {
     router.push(card.href);
+  }
+
+  function badgeLabel(n: number): string {
+    return n > 99 ? "99+" : String(n);
   }
 
   return (
@@ -58,21 +77,31 @@ export default function HomeScreen() {
         </View>
 
         <View style={[styles.grid, { paddingHorizontal: horizontalPad, gap }]}>
-          {CARDS.map((c) => (
-            <Pressable
-              key={c.key}
-              style={({ pressed }) => [
-                styles.card,
-                { width: colWidth, opacity: pressed ? 0.85 : 1 },
-              ]}
-              onPress={() => open(c)}
-            >
-              <View style={[styles.iconWrap, { backgroundColor: c.tint + "22" }]}>
-                <c.Icon color={c.tint} size={34} strokeWidth={2} />
-              </View>
-              <Text style={styles.cardLabel}>{c.label}</Text>
-            </Pressable>
-          ))}
+          {CARDS.map((c) => {
+            const n = c.badgeKey ? badges[c.badgeKey] : 0;
+            return (
+              <Pressable
+                key={c.key}
+                style={({ pressed }) => [
+                  styles.card,
+                  { width: colWidth, opacity: pressed ? 0.85 : 1 },
+                ]}
+                onPress={() => open(c)}
+              >
+                <View>
+                  <View style={[styles.iconWrap, { backgroundColor: c.tint + "22" }]}>
+                    <c.Icon color={c.tint} size={34} strokeWidth={2} />
+                  </View>
+                  {n > 0 ? (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{badgeLabel(n)}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.cardLabel}>{c.label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       </ScrollView>
     </View>
@@ -114,5 +143,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.md,
   },
+  badge: {
+    position: "absolute",
+    top: -6,
+    right: -8,
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: 11,
+    backgroundColor: colors.red,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: colors.surface,
+    shadowColor: colors.red,
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 3,
+  },
+  badgeText: { color: "#fff", fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
   cardLabel: { fontSize: 15, fontWeight: "700", color: colors.text, letterSpacing: 0.1 },
 });

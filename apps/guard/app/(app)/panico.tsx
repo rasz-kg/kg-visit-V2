@@ -3,8 +3,8 @@ import {
   View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, RefreshControl, Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { ChevronLeft, AlertTriangle, Check, MapPin, Phone, BellRing } from "lucide-react-native";
+import { useRouter, useFocusEffect } from "expo-router";
+import { ChevronLeft, AlertTriangle, Check, MapPin, Phone, BellRing, ChevronRight } from "lucide-react-native";
 import {
   getActivePanicAlerts, markPanicAttended, formatDate, type PanicAlertRow,
 } from "@/lib/data";
@@ -31,6 +31,9 @@ export default function PanicoScreen() {
   }, []);
 
   React.useEffect(() => { load(); }, [load]);
+
+  // Recarga al volver a la pantalla (después del detalle).
+  useFocusEffect(React.useCallback(() => { load(); }, [load]));
 
   async function attend(id: string) {
     setActingId(id);
@@ -79,13 +82,19 @@ export default function PanicoScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            <View style={[styles.card, isTablet && { flex: 1 }]}>
+            <Pressable
+              style={({ pressed }) => [styles.card, isTablet && { flex: 1 }, pressed && styles.cardPressed]}
+              onPress={() => router.push(`/(app)/panico/${item.id}`)}
+            >
               <View style={styles.cardTop}>
                 <View style={styles.iconWrap}><BellRing color={colors.red} size={22} /></View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.cardTitle}>{item.userName ?? "Residente"}</Text>
                   <Text style={styles.cardSubtitle}>{item.houseAddress ?? "Sin domicilio"}</Text>
                 </View>
+                <ChevronRight color={colors.textFaint} size={20} />
+              </View>
+              <View style={styles.kindRow}>
                 <View style={styles.badge}><Text style={styles.badgeText}>{item.kind ?? "Pánico"}</Text></View>
               </View>
               <Text style={styles.timeBig}>{formatDate(item.createdAt)}</Text>
@@ -115,7 +124,7 @@ export default function PanicoScreen() {
                   </>
                 )}
               </Pressable>
-            </View>
+            </Pressable>
           )}
         />
       )}
@@ -154,6 +163,8 @@ const styles = StyleSheet.create({
     shadowColor: colors.red, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
     elevation: 2, gap: spacing.sm,
   },
+  cardPressed: { backgroundColor: "#fff5f5" },
+  kindRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
   cardTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   iconWrap: {
     width: 44, height: 44, borderRadius: radius.md,

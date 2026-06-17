@@ -56,7 +56,8 @@ export default function ReservacionesScreen() {
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <View style={styles.emptyIcon}><Building2 color={colors.pink} size={28} /></View>
-              <Text style={styles.empty}>Aún no tienes reservaciones.</Text>
+              <Text style={styles.empty}>Sin reservaciones todavía</Text>
+              <Text style={styles.emptyHint}>Toca el botón + para reservar tu primera amenidad.</Text>
             </View>
           }
           renderItem={({ item }) => {
@@ -125,6 +126,7 @@ function NewReservationModal({
     );
     setBusy(false);
     if (r.error) { Alert.alert("No se pudo reservar", r.error); return; }
+    Alert.alert("Reservación enviada", "Quedará pendiente hasta que administración la apruebe.");
     onCreated();
   }
 
@@ -221,6 +223,7 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center", marginBottom: spacing.sm,
   },
   empty: { textAlign: "center", color: colors.text, fontSize: 16, fontWeight: "700" },
+  emptyHint: { textAlign: "center", color: colors.textMuted, fontSize: 13, paddingHorizontal: spacing.xl },
   card: {
     backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg,
     borderWidth: 1, borderColor: colors.border,

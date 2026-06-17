@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Camera, Check } from "lucide-react-native";
 import { useBooth } from "@/lib/booth";
 import {
   getHouses, getServices, getTransports, getEmployeesByHouse, createGuardVisit,
+  getVisitFolioById,
   type HouseRow, type ServiceRow, type TransportRow, type EmployeeRow,
 } from "@/lib/data";
 import { colors, radius, spacing, useIsTablet } from "@/lib/theme";
@@ -52,6 +53,9 @@ export default function NuevaVisitaScreen() {
   const [plateNumber, setPlateNumber] = React.useState("");
 
   const [busy, setBusy] = React.useState(false);
+  // Cuando el usuario intenta avanzar sin completar el paso, encendemos el flag
+  // para mostrar borde rojo + mensaje inline en los campos obligatorios.
+  const [showErrors, setShowErrors] = React.useState(false);
 
   // Catálogos
   const [houses, setHouses] = React.useState<HouseRow[]>([]);
@@ -82,24 +86,51 @@ export default function NuevaVisitaScreen() {
   const selectedTransport = React.useMemo(() => transports.find((t) => t.id === transportId) ?? null, [transports, transportId]);
   const transportNeedsPlate = selectedTransport?.plates ?? false;
 
-  // Validación por paso
+  // Validación por paso — flags individuales para señalar el campo erróneo.
+  const errVisitorName = kind === "visitor" && visitorName.trim().length < 2;
+  const errService = kind === "service" && !serviceId;
+  const errEmployee = kind === "employee" && !employeeId;
+  const errHouse = !houseId;
+  const errTransport = !transportId;
+  const errPlate = transportNeedsPlate && plateNumber.trim().length < 2;
+
   function canAdvance(): boolean {
     switch (step) {
       case 1: return !!kind;
-      case 2: return !!houseId;
+      case 2: return !errHouse;
       case 3:
-        if (kind === "visitor") return visitorName.trim().length >= 2;
-        if (kind === "service") return !!serviceId;
-        if (kind === "employee") return !!employeeId;
+        if (kind === "visitor") return !errVisitorName;
+        if (kind === "service") return !errService;
+        if (kind === "employee") return !errEmployee;
         return true; // resident: no extra data
       case 4:
-        if (!transportId) return false;
-        if (transportNeedsPlate) return plateNumber.trim().length >= 2;
+        if (errTransport) return false;
+        if (errPlate) return false;
         return true;
       case 5: return true; // foto = stub
       default: return true;
     }
   }
+
+  // Avanzar paso: si no se cumple, marca errores y deja al usuario en el paso.
+  function tryAdvance() {
+    if (canAdvance()) {
+      setShowErrors(false);
+      setStep(step + 1);
+    } else {
+      setShowErrors(true);
+    }
+  }
+
+  // Título del paso actual (para el banner "Paso N de 6: …" arriba del stepper).
+  const STEP_TITLES = [
+    "Tipo de visita",
+    "Domicilio destino",
+    "Datos del ingreso",
+    "Transporte",
+    "Foto del visitante",
+    "Confirmar",
+  ];
 
   async function finish(giveAccessNow: boolean) {
     if (!booth) { Alert.alert("Sin caseta", "Selecciona una caseta antes de crear la visita."); return; }
@@ -124,9 +155,19 @@ export default function NuevaVisitaScreen() {
       Alert.alert("No se pudo crear la visita", res.error);
       return;
     }
+    // Después del insert, consultamos el folio real generado por la BD (trigger
+    // / default). Si no se puede leer, mostramos mensaje genérico.
+    let folio: string | null = null;
+    if (res.visitId) {
+      folio = await getVisitFolioById(res.visitId);
+    }
+    const baseMsg = giveAccessNow
+      ? "La visita quedó registrada con acceso."
+      : "La visita quedó autorizada.";
+    const msg = folio ? `${baseMsg}\n\nFolio: ${folio}` : baseMsg;
     Alert.alert(
-      "Visita creada",
-      giveAccessNow ? "La visita quedó registrada con acceso." : "La visita quedó autorizada.",
+      folio ? `Visita creada · ${folio}` : "Visita registrada",
+      msg,
       [{ text: "OK", onPress: () => router.replace("/(app)/visitas") }],
     );
   }
@@ -148,6 +189,11 @@ export default function NuevaVisitaScreen() {
 
       {/* Stepper visual de círculos numerados con conexión */}
       <View style={styles.stepperWrap}>
+        <View style={[styles.stepBanner, isTablet && styles.stepperTablet]}>
+          <Text style={styles.stepBannerText}>
+            Paso {step} de 6: <Text style={styles.stepBannerStrong}>{STEP_TITLES[step - 1]}</Text>
+          </Text>
+        </View>
         <View style={[styles.stepper, isTablet && styles.stepperTablet]}>
           {STEP_LABELS.map((label, idx) => {
             const n = idx + 1;
@@ -203,6 +249,9 @@ export default function NuevaVisitaScreen() {
           <Step n="02" title="Domicilio destino" hint="A qué casa va la visita">
             <TextInput style={styles.input} value={houseSearch} onChangeText={setHouseSearch}
               placeholder="Buscar por dirección…" placeholderTextColor={colors.textFaint} />
+            {showErrors && errHouse && (
+              <Text style={styles.errorText}>Selecciona un domicilio destino para continuar.</Text>
+            )}
             <ScrollView style={{ maxHeight: 380, marginTop: spacing.sm }}>
               <View style={isTablet ? styles.gridRow2 : { gap: spacing.sm }}>
                 {houses.map((h) => (
@@ -228,8 +277,13 @@ export default function NuevaVisitaScreen() {
             {kind === "visitor" && (
               <>
                 <Text style={styles.fieldLabel}>Nombre del visitante *</Text>
-                <TextInput style={styles.input} value={visitorName} onChangeText={setVisitorName}
+                <TextInput
+                  style={[styles.input, showErrors && errVisitorName && styles.inputError]}
+                  value={visitorName} onChangeText={setVisitorName}
                   placeholder="Nombre completo" placeholderTextColor={colors.textFaint} />
+                {showErrors && errVisitorName && (
+                  <Text style={styles.errorText}>Escribe el nombre completo (mínimo 2 caracteres).</Text>
+                )}
                 <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>CURP (opcional)</Text>
                 <TextInput style={styles.input} value={visitorCurp} onChangeText={setVisitorCurp}
                   placeholder="CURP" placeholderTextColor={colors.textFaint} autoCapitalize="characters" />
@@ -247,6 +301,9 @@ export default function NuevaVisitaScreen() {
                   ))}
                   {services.length === 0 && <Text style={styles.faint}>Sin servicios configurados.</Text>}
                 </View>
+                {showErrors && errService && (
+                  <Text style={styles.errorText}>Selecciona el servicio que llega.</Text>
+                )}
                 {selectedService?.hasDetails && (
                   <>
                     <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>Detalles del servicio</Text>
@@ -270,6 +327,9 @@ export default function NuevaVisitaScreen() {
                     </Text>
                   )}
                 </View>
+                {showErrors && errEmployee && (
+                  <Text style={styles.errorText}>Selecciona el empleado que ingresa.</Text>
+                )}
               </>
             )}
             {kind === "resident" && (
@@ -290,11 +350,19 @@ export default function NuevaVisitaScreen() {
               ))}
               {transports.length === 0 && <Text style={styles.faint}>Sin transportes configurados.</Text>}
             </View>
+            {showErrors && errTransport && (
+              <Text style={styles.errorText}>Selecciona cómo llega la visita.</Text>
+            )}
             {transportNeedsPlate && (
               <>
                 <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>Número de placa *</Text>
-                <TextInput style={styles.input} value={plateNumber} onChangeText={setPlateNumber}
+                <TextInput
+                  style={[styles.input, showErrors && errPlate && styles.inputError]}
+                  value={plateNumber} onChangeText={setPlateNumber}
                   placeholder="ABC-1234" placeholderTextColor={colors.textFaint} autoCapitalize="characters" />
+                {showErrors && errPlate && (
+                  <Text style={styles.errorText}>Captura la placa (mínimo 2 caracteres).</Text>
+                )}
                 <Text style={styles.faint}>Validación REPUVE — próximamente.</Text>
               </>
             )}
@@ -352,14 +420,17 @@ export default function NuevaVisitaScreen() {
           <View style={[styles.footerInner, isTablet && { maxWidth: 960, alignSelf: "center", width: "100%" }]}>
             <Pressable
               style={styles.footerGhost}
-              onPress={() => (step > 1 ? setStep(step - 1) : router.back())}
+              onPress={() => {
+                setShowErrors(false);
+                if (step > 1) setStep(step - 1);
+                else router.back();
+              }}
             >
               <Text style={{ color: colors.text, fontWeight: "700" }}>{step > 1 ? "Anterior" : "Cancelar"}</Text>
             </Pressable>
             <Pressable
-              style={[styles.footerPrimary, { opacity: canAdvance() ? 1 : 0.4 }]}
-              onPress={() => canAdvance() && setStep(step + 1)}
-              disabled={!canAdvance()}
+              style={styles.footerPrimary}
+              onPress={tryAdvance}
             >
               <Text style={{ color: "#fff", fontWeight: "800" }}>Siguiente</Text>
               <ChevronRight color="#fff" size={18} />
@@ -428,7 +499,17 @@ const styles = StyleSheet.create({
   brandHint: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 2, fontWeight: "600" },
 
   // Stepper de círculos numerados con conexión
-  stepperWrap: { backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: spacing.md },
+  stepperWrap: { backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: spacing.md, gap: spacing.sm },
+  stepBanner: {
+    paddingHorizontal: spacing.md,
+    width: "100%",
+  },
+  stepBannerText: {
+    color: colors.textMuted, fontSize: 13, fontWeight: "600",
+  },
+  stepBannerStrong: {
+    color: colors.text, fontWeight: "800",
+  },
   stepper: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, gap: 4 },
   stepperTablet: { maxWidth: 960, alignSelf: "center", width: "100%", paddingHorizontal: spacing.xl },
   stepItem: { alignItems: "center", gap: 4 },
@@ -466,6 +547,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
     paddingHorizontal: spacing.md, paddingVertical: spacing.md + 2,
     fontSize: 15, color: colors.text, backgroundColor: colors.bg,
+  },
+  inputError: { borderColor: colors.red, borderWidth: 1.5 },
+  errorText: {
+    color: colors.red, fontSize: 12, fontWeight: "700",
+    marginTop: 6,
   },
   faint: { color: colors.textFaint, fontSize: 13, paddingVertical: spacing.sm },
   kindCard: {

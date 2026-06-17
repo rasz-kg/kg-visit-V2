@@ -1,13 +1,15 @@
 import * as React from "react";
 import { View, Text, Pressable, StyleSheet, Alert, ActivityIndicator, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ShieldAlert } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { ShieldAlert, History } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { colors, radius, spacing } from "@/lib/theme";
 
 export default function PanicoScreen() {
   const { profile } = useAuth();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [busy, setBusy] = React.useState(false);
   const scale = React.useRef(new Animated.Value(1)).current;
@@ -23,8 +25,18 @@ export default function PanicoScreen() {
     };
     const { error } = await supabase.from("panic_alerts").insert(payload as never);
     setBusy(false);
-    if (error) Alert.alert("No se pudo enviar", error.message);
-    else Alert.alert("Alerta enviada", "La caseta fue notificada de tu emergencia.");
+    if (error) {
+      Alert.alert("No se pudo enviar", error.message);
+      return;
+    }
+    Alert.alert(
+      "Alerta enviada",
+      "La caseta fue notificada de tu emergencia.",
+      [
+        { text: "OK", style: "cancel" },
+        { text: "Ver mis alertas", onPress: () => router.push("/mis-alertas") },
+      ],
+    );
   }
 
   function onPressIn() {
@@ -63,6 +75,10 @@ export default function PanicoScreen() {
         </View>
       </View>
 
+      <Pressable style={styles.historyLink} onPress={() => router.push("/mis-alertas")} hitSlop={8}>
+        <History color={colors.brand} size={16} />
+        <Text style={styles.historyText}>Ver mis alertas</Text>
+      </Pressable>
       <Text style={styles.footerHint}>Úsalo solo en emergencias reales.</Text>
     </View>
   );
@@ -92,6 +108,15 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   buttonText: { color: "#fff", fontWeight: "800", fontSize: 15, letterSpacing: 1.5 },
+  historyLink: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    alignSelf: "center",
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
+    marginBottom: spacing.md,
+  },
+  historyText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
   footerHint: { textAlign: "center", color: colors.textFaint, fontSize: 12, marginBottom: spacing.xl, fontStyle: "italic" },
 });
 

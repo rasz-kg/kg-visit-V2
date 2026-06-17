@@ -88,6 +88,15 @@ export default function VisitDetailScreen() {
           <Text style={styles.heroSubject} numberOfLines={2}>{visit.subject || who}</Text>
         </View>
 
+        {/* CTA: ver pase / QR (encadenamiento prominente, antes de info) */}
+        <Pressable
+          style={({ pressed }) => [styles.btn, styles.btnPrimary, pressed && { transform: [{ scale: 0.98 }] }]}
+          onPress={() => router.push(`/visitas/${visit.id}/qr`)}
+        >
+          <QrCode color="#fff" size={22} />
+          <Text style={styles.btnPrimaryText}>Ver pase / QR</Text>
+        </Pressable>
+
         {/* Grid de campos */}
         <View style={styles.fieldGrid}>
           <FieldCard label="Tipo" value={visit.kind} />
@@ -117,13 +126,6 @@ export default function VisitDetailScreen() {
           </View>
         ) : null}
 
-        <Pressable
-          style={({ pressed }) => [styles.btn, styles.btnPrimary, pressed && { transform: [{ scale: 0.98 }] }]}
-          onPress={() => router.push(`/visitas/${visit.id}/qr`)}
-        >
-          <QrCode color="#fff" size={20} />
-          <Text style={styles.btnPrimaryText}>Ver pase / QR</Text>
-        </Pressable>
         <Pressable
           style={[styles.btn, styles.btnGhost, (busy || isClosed) && { opacity: 0.4 }]}
           onPress={confirmCancel}

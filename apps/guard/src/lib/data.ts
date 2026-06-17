@@ -516,3 +516,37 @@ export async function markPanicAttended(id: string): Promise<{ error?: string }>
     .eq("id", id);
   return error ? { error: error.message } : {};
 }
+
+// Detalle de una alerta de pánico (por id) — usa los mismos joins que getActivePanicAlerts.
+export async function getPanicAlertById(id: string): Promise<PanicAlertRow | null> {
+  const res = await supabase
+    .from("panic_alerts")
+    .select("id,kind,lat,lng,status,created_at,houses(address),users(name,phone)")
+    .eq("id", id)
+    .maybeSingle();
+  if (res.error || !res.data) return null;
+  const p = res.data as unknown as {
+    id: string; kind: string | null; lat: number | null; lng: number | null;
+    status: boolean; created_at: string;
+    houses: { address?: string | null } | null;
+    users: { name?: string | null; phone?: string | null } | null;
+  };
+  return {
+    id: p.id,
+    kind: p.kind,
+    lat: p.lat,
+    lng: p.lng,
+    status: p.status,
+    createdAt: p.created_at,
+    houseAddress: p.houses?.address ?? null,
+    userName: p.users?.name ?? null,
+    userPhone: p.users?.phone ?? null,
+  };
+}
+
+// Recupera el folio de una visita (post-insert). Devuelve null si no se puede leer.
+export async function getVisitFolioById(id: string): Promise<string | null> {
+  const res = await supabase.from("visits").select("folio").eq("id", id).maybeSingle();
+  if (res.error || !res.data) return null;
+  return (res.data as { folio: string | null }).folio ?? null;
+}

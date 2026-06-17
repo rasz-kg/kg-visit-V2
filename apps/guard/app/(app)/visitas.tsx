@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   Search, QrCode, ScanLine, Menu, Check, X, LogIn, LogOut, Flag, Plus,
-  Clock, Car, ChevronDown, type LucideIcon,
+  Clock, Car, ChevronDown, DoorOpen, type LucideIcon,
 } from "lucide-react-native";
 import { useBooth } from "@/lib/booth";
 import {
@@ -171,8 +171,31 @@ export default function VisitasScreen() {
             { padding: spacing.md, gap: spacing.md, paddingBottom: 120 },
             isTablet && { paddingHorizontal: spacing.xl, maxWidth: 1200, alignSelf: "center", width: "100%" },
           ]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
-          ListEmptyComponent={<Text style={styles.empty}>No hay visitas para los filtros actuales.</Text>}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); load(); }}
+              colors={[colors.brand]}
+              tintColor={colors.brand}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyIcon}>
+                <DoorOpen color={colors.textFaint} size={48} />
+              </View>
+              <Text style={styles.emptyTitle}>
+                {(search || kind || status)
+                  ? "Sin visitas para los filtros actuales"
+                  : "Sin visitas registradas hoy"}
+              </Text>
+              <Text style={styles.emptyHint}>
+                {(search || kind || status)
+                  ? "Ajusta los filtros o limpia la búsqueda."
+                  : "Toca '+' para crear una nueva visita."}
+              </Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <VisitRow
               item={item}
@@ -383,6 +406,17 @@ const styles = StyleSheet.create({
   },
 
   empty: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl, paddingHorizontal: spacing.xl },
+  emptyWrap: {
+    alignItems: "center", justifyContent: "center",
+    paddingHorizontal: spacing.xl, paddingTop: spacing.xl * 2, gap: spacing.sm,
+  },
+  emptyIcon: {
+    width: 104, height: 104, borderRadius: radius.pill,
+    backgroundColor: "#eef2f6",
+    alignItems: "center", justifyContent: "center", marginBottom: spacing.md,
+  },
+  emptyTitle: { color: colors.text, fontSize: 17, fontWeight: "800", textAlign: "center" },
+  emptyHint: { color: colors.textMuted, fontSize: 14, textAlign: "center", marginTop: 2 },
 
   // Cards
   card: {

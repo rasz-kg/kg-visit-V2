@@ -50,8 +50,8 @@ export default function VisitasScreen() {
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <View style={styles.emptyIcon}><DoorOpen color={colors.brand} size={28} /></View>
-              <Text style={styles.empty}>Aún no tienes visitas.</Text>
-              <Text style={styles.emptyHint}>Crea una nueva visita con el botón naranja.</Text>
+              <Text style={styles.empty}>Sin visitas todavía</Text>
+              <Text style={styles.emptyHint}>Toca el botón + para crear tu primera visita.</Text>
             </View>
           }
           renderItem={({ item }) => {

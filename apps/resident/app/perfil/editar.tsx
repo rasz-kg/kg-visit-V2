@@ -1,10 +1,10 @@
 import * as React from "react";
 import {
-  View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, ScrollView, Alert,
+  View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, ScrollView, Alert, Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, User } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { updateMyProfile } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
@@ -51,6 +51,16 @@ export default function EditarPerfilScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 }}>
+        <View style={styles.avatarWrap}>
+          {avatar ? (
+            <Image source={{ uri: avatar }} style={styles.avatarImg} />
+          ) : (
+            <View style={[styles.avatarImg, styles.avatarFallback]}>
+              <User color={colors.brand} size={48} strokeWidth={1.8} />
+            </View>
+          )}
+        </View>
+
         <View style={styles.card}>
           <Field label="Nombre*" value={name} onChange={setName} />
           <Field label="Correo" value={email} onChange={setEmail} keyboard="email-address" />
@@ -105,11 +115,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   title: { color: colors.text, fontSize: 22, fontWeight: "800" },
+  avatarWrap: { alignItems: "center", paddingVertical: spacing.sm },
+  avatarImg: {
+    width: 96, height: 96, borderRadius: 48,
+    backgroundColor: colors.surface,
+    borderWidth: 2, borderColor: colors.brand + "55",
+  },
+  avatarFallback: { alignItems: "center", justifyContent: "center" },
   card: {
     backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border,
     padding: spacing.lg,
   },
-  label: { fontSize: 12, fontWeight: "700", color: colors.textMuted, marginBottom: 6, letterSpacing: 0.5, textTransform: "uppercase" },
+  label: { fontSize: 11, fontWeight: "700", color: colors.textMuted, marginBottom: 6, letterSpacing: 1.2, textTransform: "uppercase" },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
     paddingHorizontal: spacing.md + 2, paddingVertical: spacing.md, fontSize: 15,

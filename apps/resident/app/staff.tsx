@@ -39,7 +39,10 @@ export default function StaffScreen() {
         text: "Eliminar", style: "destructive", onPress: async () => {
           const r = await deleteEmployee(e.id);
           if (r.error) Alert.alert("No se pudo eliminar", r.error);
-          else load();
+          else {
+            Alert.alert("Empleado eliminado", `${e.name} se quitó de tu staff.`);
+            load();
+          }
         },
       },
     ]);
@@ -67,8 +70,8 @@ export default function StaffScreen() {
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <View style={styles.emptyIcon}><Briefcase color={colors.amber} size={28} /></View>
-              <Text style={styles.empty}>Aún no tienes empleados registrados.</Text>
-              <Text style={styles.emptyHint}>Toca el botón naranja para agregar uno nuevo.</Text>
+              <Text style={styles.empty}>Sin staff todavía</Text>
+              <Text style={styles.emptyHint}>Toca el botón + para registrar a tu primer empleado.</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -144,6 +147,7 @@ function EmployeeFormModal({
       });
     setBusy(false);
     if (r.error) { Alert.alert("No se pudo guardar", r.error); return; }
+    Alert.alert(editing ? "Empleado actualizado" : "Empleado creado", `${form.name} se guardó.`);
     onSaved();
   }
 

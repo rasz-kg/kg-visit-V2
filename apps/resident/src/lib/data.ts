@@ -816,3 +816,57 @@ export async function addEventGuest(
   } as never);
   return error ? { error: error.message } : {};
 }
+
+/* --------------------------- Dashboard badges ---------------------------- */
+// Devuelve los conteos para mostrar como badges arriba de los iconos del dashboard.
+// `notifications`: no leídas del usuario actual.
+// `notices`: avisos activos del residencial (no hay tracking por residente todavía).
+export async function getDashboardBadges(userId: string | null): Promise<{
+  notifications: number; notices: number;
+}> {
+  const out = { notifications: 0, notices: 0 };
+  if (userId) {
+    const n = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("viewed", false);
+    out.notifications = n.count ?? 0;
+  }
+  const a = await supabase
+    .from("notices")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "active");
+  out.notices = a.count ?? 0;
+  return out;
+}
+
+/* --------------------------- Mis alertas de pánico ----------------------- */
+// `status` en `panic_alerts` se interpreta como "activa/pendiente": true mientras
+// el guardia no la haya cerrado, false cuando fue atendida.
+export interface PanicAlertItem {
+  id: string;
+  kind: string | null;
+  status: boolean; // true = pendiente, false = atendida
+  createdAt: string;
+}
+
+export async function getMyPanicAlerts(userId: string | null): Promise<PanicAlertItem[]> {
+  if (!userId) return [];
+  const res = await supabase
+    .from("panic_alerts")
+    .select("id,kind,status,created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (res.error) return [];
+  const rows = (res.data ?? []) as unknown as {
+    id: string; kind: string | null; status: boolean | null; created_at: string;
+  }[];
+  return rows.map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    status: r.status !== false,
+    createdAt: r.created_at,
+  }));
+}

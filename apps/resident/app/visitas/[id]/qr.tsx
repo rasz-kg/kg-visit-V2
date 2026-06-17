@@ -118,16 +118,18 @@ export default function QrScreen() {
         <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg, alignItems: "center", paddingBottom: spacing.xl * 2 }}>
           <Text style={styles.subject} numberOfLines={2}>{visit.subject ?? visit.visitorName ?? "Visita"}</Text>
 
-          {/* Tarjeta de pase con glow naranja */}
+          {/* Tarjeta de pase con borde gradient naranja → ámbar */}
           <View style={styles.passOuter}>
-            <View style={styles.passInner}>
-              <View style={styles.qrFrame}>
-                <StampGrid folio={visit.folio ?? visit.id} />
-              </View>
+            <View style={styles.passMid}>
+              <View style={styles.passInner}>
+                <View style={styles.qrFrame}>
+                  <StampGrid folio={visit.folio ?? visit.id} />
+                </View>
 
-              <Text style={styles.folioLabel}>FOLIO</Text>
-              <Text style={styles.folio}>{visit.folio ?? "—"}</Text>
-              <Text style={styles.hint}>Muestra este folio al guardia en caseta.</Text>
+                <Text style={styles.folioLabel}>FOLIO</Text>
+                <Text style={styles.folio}>{visit.folio ?? "—"}</Text>
+                <Text style={styles.hint}>Muestra este folio al guardia en caseta.</Text>
+              </View>
             </View>
           </View>
 
@@ -156,16 +158,21 @@ const styles = StyleSheet.create({
   },
   title: { color: colors.text, fontSize: 22, fontWeight: "800" },
   subject: { fontSize: 18, fontWeight: "700", color: colors.text, textAlign: "center" },
-  // Glow exterior naranja muy suave
+  // Marco exterior: stack de dos capas para simular gradiente naranja→ámbar.
   passOuter: {
-    padding: 4,
-    borderRadius: radius.xl + 4,
-    backgroundColor: colors.brandSoft,
+    padding: 3,
+    borderRadius: radius.xl + 6,
+    backgroundColor: colors.brand,
     shadowColor: colors.brand,
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
+    shadowOpacity: 0.55,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  passMid: {
+    padding: 2,
+    borderRadius: radius.xl + 3,
+    backgroundColor: colors.amber,
   },
   passInner: {
     backgroundColor: colors.surface,
@@ -174,13 +181,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: colors.brand + "55",
+    borderColor: colors.brand + "33",
   },
   qrFrame: {
     padding: spacing.md, backgroundColor: "#fff", borderRadius: radius.lg,
   },
   folioLabel: { color: colors.textMuted, fontSize: 11, fontWeight: "700", letterSpacing: 2, marginTop: spacing.lg },
-  folio: { fontSize: 40, fontWeight: "900", color: colors.brand, letterSpacing: 3, marginTop: 4 },
+  folio: {
+    fontSize: 64, fontWeight: "900", color: colors.brand, letterSpacing: 4, marginTop: 4,
+    textShadowColor: colors.brand + "55",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 18,
+    textAlign: "center",
+  },
   hint: { color: colors.textMuted, fontSize: 13, textAlign: "center", paddingHorizontal: spacing.lg, marginTop: spacing.sm },
   shareBtn: {
     flexDirection: "row", alignItems: "center", gap: spacing.sm,

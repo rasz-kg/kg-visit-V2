@@ -44,7 +44,13 @@ export default function EventosScreen() {
           data={items}
           keyExtractor={(i) => i.id}
           contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}
-          ListEmptyComponent={<Text style={styles.empty}>Aún no tienes eventos. Crea uno con el botón +.</Text>}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyIcon}><CalendarDays color={colors.red} size={28} /></View>
+              <Text style={styles.empty}>Sin eventos todavía</Text>
+              <Text style={styles.emptyHint}>Toca el botón + para crear tu primer evento.</Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <Pressable
               style={styles.card}
@@ -89,7 +95,13 @@ const styles = StyleSheet.create({
   },
   title: { color: "#fff", fontSize: 22, fontWeight: "800" },
   subtitle: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
-  empty: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl, paddingHorizontal: spacing.xl },
+  emptyWrap: { alignItems: "center", paddingTop: spacing.xl * 2, gap: spacing.sm },
+  emptyIcon: {
+    width: 64, height: 64, borderRadius: 32, backgroundColor: colors.red + "22",
+    alignItems: "center", justifyContent: "center", marginBottom: spacing.sm,
+  },
+  empty: { textAlign: "center", color: colors.text, fontSize: 16, fontWeight: "700" },
+  emptyHint: { textAlign: "center", color: colors.textMuted, fontSize: 13, paddingHorizontal: spacing.xl },
   card: {
     flexDirection: "row", alignItems: "center", gap: spacing.md,
     backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg,

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { DoorOpen, LogOut, ChevronLeft, AlertTriangle, User2, Mail, Building2, ShieldCheck } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { useBooth } from "@/lib/booth";
@@ -20,7 +20,12 @@ export default function MenuScreen() {
   const isTablet = useIsTablet();
   const [panicCount, setPanicCount] = React.useState(0);
 
-  React.useEffect(() => { countActivePanicAlerts().then(setPanicCount); }, []);
+  // Refresca el badge cada vez que la pantalla recibe foco (e.g. al volver de /panico).
+  useFocusEffect(
+    React.useCallback(() => {
+      countActivePanicAlerts().then(setPanicCount);
+    }, []),
+  );
 
   async function changeBooth() {
     await setBooth(null);

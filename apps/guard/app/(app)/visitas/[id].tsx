@@ -5,7 +5,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Check, X, LogIn, LogOut, Flag, AlertTriangle, type LucideIcon } from "lucide-react-native";
+import {
+  ChevronLeft, Check, X, LogIn, LogOut, Flag, AlertTriangle,
+  Clock, DoorOpen, DoorClosed, type LucideIcon,
+} from "lucide-react-native";
 import {
   getVisitById, authorizeVisit, denyVisit, giveAccess, leaveVisit, reportVisit,
   createIncident, formatDate, type VisitDetail,
@@ -169,6 +172,11 @@ export default function VisitaDetailScreen() {
           </Card>
         )}
 
+        {/* Historial cronológico */}
+        <Card title="Historial">
+          <Timeline visit={visit} />
+        </Card>
+
         {/* Acciones */}
         <View style={styles.actions}>
           {visit.status === "pending" && (
@@ -236,6 +244,43 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>
       <View style={{ marginTop: spacing.sm }}>{children}</View>
+    </View>
+  );
+}
+
+// Línea de tiempo cronológica: llegada → entrada → salida. Cada hito muestra
+// label + valor formateado en es-MX. Si un hito está vacío, lo marca como
+// "Pendiente" con tono apagado.
+function Timeline({ visit }: { visit: VisitDetail }) {
+  const events: { icon: LucideIcon; label: string; value: string | null; color: string }[] = [
+    { icon: Clock, label: "Llegada", value: visit.arriveDate, color: colors.amber },
+    { icon: DoorOpen, label: "Entrada", value: visit.enterDate, color: colors.green },
+    { icon: DoorClosed, label: "Salida", value: visit.leaveDate, color: colors.textMuted },
+  ];
+  return (
+    <View style={styles.timeline}>
+      {events.map((e, idx) => {
+        const Icon = e.icon;
+        const isLast = idx === events.length - 1;
+        const present = !!e.value;
+        const dotColor = present ? e.color : colors.border;
+        return (
+          <View key={e.label} style={styles.tlRow}>
+            <View style={styles.tlGutter}>
+              <View style={[styles.tlDot, { backgroundColor: dotColor }]}>
+                <Icon color="#fff" size={12} />
+              </View>
+              {!isLast && <View style={[styles.tlLine, present && { backgroundColor: e.color + "55" }]} />}
+            </View>
+            <View style={styles.tlBody}>
+              <Text style={styles.tlLabel}>{e.label}</Text>
+              <Text style={[styles.tlValue, !present && { color: colors.textFaint, fontWeight: "500" }]}>
+                {present ? formatDate(e.value) : "Pendiente"}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -356,4 +401,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.brand,
   },
+
+  // Línea de tiempo (Historial)
+  timeline: { marginTop: spacing.sm, gap: 0 },
+  tlRow: { flexDirection: "row", gap: spacing.md, alignItems: "stretch" },
+  tlGutter: { alignItems: "center", width: 28 },
+  tlDot: {
+    width: 26, height: 26, borderRadius: radius.pill,
+    alignItems: "center", justifyContent: "center",
+  },
+  tlLine: { flex: 1, width: 2, backgroundColor: colors.border, marginTop: 2, marginBottom: 2, borderRadius: 1 },
+  tlBody: { flex: 1, paddingBottom: spacing.md },
+  tlLabel: { color: colors.textMuted, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+  tlValue: { color: colors.text, fontSize: 14, fontWeight: "700", marginTop: 2 },
 });
