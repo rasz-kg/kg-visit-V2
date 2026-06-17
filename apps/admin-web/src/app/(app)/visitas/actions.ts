@@ -14,6 +14,62 @@ async function tenantId(sb: SB): Promise<string | null> {
   return (data as { residential_id: string } | null)?.residential_id ?? null;
 }
 
+/** Identidad del admin en sesión: residential_id + id de su fila en `users`. */
+async function currentUser(sb: SB): Promise<{ residentialId: string; userId: string } | null> {
+  const { data: auth } = await sb.auth.getUser();
+  if (!auth.user) return null;
+  const { data } = await sb.from("users").select("id,residential_id").eq("auth_user_id", auth.user.id).maybeSingle();
+  const row = data as { id: string; residential_id: string } | null;
+  if (!row) return null;
+  return { residentialId: row.residential_id, userId: row.id };
+}
+
+const VISIT_KINDS = ["visitor", "employee", "service", "resident", "provider", "event"];
+
+function s(fd: FormData, k: string) { return String(fd.get(k) ?? "").trim(); }
+
+/** Pre-registra una visita desde el portal: crea (o reutiliza) un visitante y la visita en estado pendiente. */
+export async function createVisit(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const kind = VISIT_KINDS.includes(s(fd, "kind")) ? s(fd, "kind") : "visitor";
+  const houseId = s(fd, "house_id") || null;
+  const who = s(fd, "who");
+  const subject = s(fd, "subject");
+  if (!who && !subject) return { ok: false, error: "Indica el nombre del visitante o el asunto." };
+  if (!isSupabaseConfigured) return { ok: true };
+  try {
+    const sb = await createClient();
+    const me = await currentUser(sb);
+    if (!me) return { ok: false, error: "Tu sesión no permite esta acción." };
+
+    // Crea un visitante con el nombre capturado para que la visita muestre "quién".
+    let visitorId: string | null = null;
+    if (who) {
+      const { data: v, error: vErr } = await sb
+        .from("visitors")
+        .insert({ residential_id: me.residentialId, name: who } as never)
+        .select("id")
+        .maybeSingle();
+      if (vErr) return { ok: false, error: vErr.message };
+      visitorId = (v as { id: string } | null)?.id ?? null;
+    }
+
+    const payload = {
+      residential_id: me.residentialId,
+      kind,
+      status: "pending",
+      house_id: houseId,
+      subject: subject || null,
+      visitor_id: visitorId,
+      created_by: me.userId,
+      arrive_date: new Date().toISOString(),
+    };
+    const { error } = await sb.from("visits").insert(payload as never);
+    if (error) return { ok: false, error: error.message };
+    revalidatePath("/visitas");
+    return { ok: true };
+  } catch { return { ok: false, error: "No se pudo registrar la visita." }; }
+}
+
 /** Update genérico de una visita por id (RLS admin). */
 async function updateVisit(id: string, patch: Record<string, unknown>): Promise<ActionState> {
   if (!id) return { ok: false, error: "Datos incompletos." };

@@ -3,14 +3,17 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus, Footprints, QrCode, Package, Flag, Search, Filter,
+  Plus, Footprints, QrCode, Package, Flag, Search, Filter, Loader2,
 } from "lucide-react";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
+import { Modal } from "@/components/modal";
 import { formatDateTime } from "@/lib/utils";
 import type { Visit, VisitKind, VisitStatus } from "@/lib/types";
 import {
-  authorizeVisit, giveAccess, markLeave, reportVisit, notifyPackage, type ActionState,
+  authorizeVisit, denyVisit, giveAccess, markLeave, reportVisit, notifyPackage, createVisit, type ActionState,
 } from "./actions";
+
+interface HouseOption { id: string; address: string }
 
 const KIND_LABEL: Record<VisitKind, string> = {
   visitor: "Visitante", employee: "Empleado", service: "Servicio",
@@ -25,10 +28,14 @@ const STATUS_TONE: Record<VisitStatus, "amber" | "blue" | "red" | "green" | "sla
   finished: "slate", canceled: "slate", expired: "slate",
 };
 
-export function VisitasClient({ visits: allVisits }: { visits: Visit[] }) {
-  const [q, setQ] = React.useState("");
+export function VisitasClient({ visits: allVisits, houses, initialQuery = "" }: { visits: Visit[]; houses: HouseOption[]; initialQuery?: string }) {
+  const router = useRouter();
+  const [q, setQ] = React.useState(initialQuery);
   const [kind, setKind] = React.useState<string>("all");
   const [status, setStatus] = React.useState<string>("all");
+  const [open, setOpen] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [pending, start] = React.useTransition();
 
   const visits = allVisits.filter(
     (v) =>
@@ -37,6 +44,16 @@ export function VisitasClient({ visits: allVisits }: { visits: Visit[] }) {
       (q === "" || `${v.title} ${v.who} ${v.houseAddress} ${v.plate ?? ""}`.toLowerCase().includes(q.toLowerCase()))
   );
 
+  function onCreate(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    const fd = new FormData(e.currentTarget);
+    start(async () => {
+      const res = await createVisit(null, fd);
+      if (res?.ok) { setOpen(false); router.refresh(); } else setError(res?.error ?? "Error.");
+    });
+  }
+
   return (
     <>
       <PageHeader
@@ -44,9 +61,9 @@ export function VisitasClient({ visits: allVisits }: { visits: Visit[] }) {
         subtitle="Control de accesos en tiempo real — autoriza, registra entrada/salida y reporta."
         actions={
           <>
-            <Button variant="outline"><QrCode className="h-4 w-4" /> QR Auto</Button>
-            <Button variant="outline"><Footprints className="h-4 w-4" /> QR Caminando</Button>
-            <Button><Plus className="h-4 w-4" /> Nueva visita</Button>
+            <Button variant="outline" title="La generación de QR Auto/Caminando se realiza desde la app de caseta o residente." disabled><QrCode className="h-4 w-4" /> QR Auto</Button>
+            <Button variant="outline" title="La generación de QR Auto/Caminando se realiza desde la app de caseta o residente." disabled><Footprints className="h-4 w-4" /> QR Caminando</Button>
+            <Button onClick={() => { setError(null); setOpen(true); }}><Plus className="h-4 w-4" /> Nueva visita</Button>
           </>
         }
       />
@@ -82,6 +99,40 @@ export function VisitasClient({ visits: allVisits }: { visits: Visit[] }) {
           <Card className="p-10 text-center text-sm text-slate-500">Sin visitas que coincidan con los filtros.</Card>
         )}
       </div>
+
+      <Modal open={open} onClose={() => setOpen(false)} title="Nueva visita">
+        <form onSubmit={onCreate} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Tipo de visita</label>
+            <select name="kind" defaultValue="visitor" className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-brand-300 focus:bg-white">
+              {Object.entries(KIND_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Nombre del visitante</label>
+            <input name="who" placeholder="Ej. María López"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Domicilio destino</label>
+            <select name="house_id" defaultValue="" className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-brand-300 focus:bg-white">
+              <option value="">— Sin asignar —</option>
+              {houses.map((h) => <option key={h.id} value={h.id}>{h.address}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Asunto / motivo</label>
+            <input name="subject" placeholder="Ej. Visita familiar"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100" />
+          </div>
+          <p className="text-xs text-slate-400">Se registra como <strong>pendiente</strong>; podrás autorizarla y darle acceso desde la lista.</p>
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button type="submit" disabled={pending}>{pending && <Loader2 className="h-4 w-4 animate-spin" />}Registrar visita</Button>
+          </div>
+        </form>
+      </Modal>
     </>
   );
 }
@@ -124,7 +175,10 @@ function VisitRowCard({ v }: { v: Visit }) {
         </div>
         <div className="flex flex-wrap gap-2">
           {v.status === "pending" && (
-            <Button disabled={pending} onClick={() => run(authorizeVisit)}>Autorizar</Button>
+            <>
+              <Button disabled={pending} onClick={() => run(authorizeVisit)}>Autorizar</Button>
+              <Button variant="outline" disabled={pending} onClick={() => run(denyVisit)}>Denegar</Button>
+            </>
           )}
           {v.status === "authorized" && (
             <Button variant="dark" disabled={pending} onClick={() => run(giveAccess)}>Dar acceso</Button>

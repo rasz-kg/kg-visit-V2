@@ -1,15 +1,35 @@
-import { Plus, MapPinned, ShieldCheck, Building2 } from "lucide-react";
+import { Plus, MapPinned, ShieldCheck, Building2, Info } from "lucide-react";
 import { Button, Card, CardBody, PageHeader } from "@/components/ui";
-import { sites } from "@/lib/mock";
+import { getSites } from "@/lib/data";
 
-export default function SedesPage() {
+export default async function SedesPage() {
+  const sites = await getSites();
+  const multiSite = sites.some((s) => s.multiSite);
   return (
     <>
       <PageHeader
         title="Sedes"
         subtitle="Para operación multi-sede (corporativo / industrial): cada sede agrupa casetas y unidades."
-        actions={<Button><Plus className="h-4 w-4" /> Nueva sede</Button>}
+        actions={
+          <Button disabled title="La operación multi-sede requiere habilitar el módulo de sedes (tabla sites — ver docs/10).">
+            <Plus className="h-4 w-4" /> Nueva sede
+          </Button>
+        }
       />
+
+      {!multiSite && (
+        <Card className="mb-5 border-blue-200/70 bg-blue-50/40">
+          <CardBody className="flex gap-3 p-4 text-sm text-slate-600">
+            <Info className="h-5 w-5 shrink-0 text-blue-500" />
+            <p>
+              Este residencial opera como <strong>sede única</strong>. La operación multi-sede (varias sedes con sus
+              propias casetas y unidades) requiere habilitar el módulo de sedes en la base de datos
+              (tabla <code className="rounded bg-slate-100 px-1">sites</code> — ver <code className="rounded bg-slate-100 px-1">docs/10</code>).
+            </p>
+          </CardBody>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sites.map((s) => (
           <Card key={s.id}>
@@ -25,6 +45,7 @@ export default function SedesPage() {
             </CardBody>
           </Card>
         ))}
+        {sites.length === 0 && <Card className="col-span-full p-12 text-center text-sm text-slate-500">No se pudo cargar la información de la sede.</Card>}
       </div>
     </>
   );

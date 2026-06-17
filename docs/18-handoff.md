@@ -3,6 +3,10 @@
 Documento de traspaso del proyecto **KG-Visit V2**. Estado real, honesto y verificado en vivo.
 Léelo primero al retomar.
 
+> **ACTUALIZACIÓN (oleada "botones muertos"):** los módulos rotos ya se conectaron a datos reales.
+> Ver **`docs/19-auditoria-admin-final.md`** para la auditoría vigente. La tabla §2 de abajo queda
+> como referencia histórica; los 🔴 de Avisos/Sugerencias/Lista negra/Sedes/Autos ya son ✅.
+
 ---
 ## 1. Accesos
 | Recurso | Valor |
@@ -59,7 +63,7 @@ Es una **maqueta interactiva** (no consume backend salvo los campos configurable
 
 ---
 ## 5. Plan priorizado para llegar al 100% (orden sugerido)
-1. **Arreglar lo roto (alta prioridad, bajo costo):** migrar Avisos, Sugerencias, Lista negra, Sedes a datos reales + acciones (Avisos/Sedes vía el **motor** `/m/[entity]`: solo registrar la entidad en `lib/entities.ts`). Cablear "Nueva placa" en Autos y "Denegar" en Visitas.
+1. ~~**Arreglar lo roto:** migrar Avisos, Sugerencias, Lista negra, Sedes a datos reales + acciones; cablear "Nueva placa" en Autos y "Denegar" en Visitas.~~ ✅ **HECHO** (ver `docs/19`). Se hizo bespoke (no por el motor) por enums/relaciones/estatus-texto. Bonus: Dashboard con gráficas reales y buscador global funcional.
 2. **Vistas de detalle / drill-in:** añadir `/.../[id]` en el motor y en Departamentos/Visitas/Usuarios (detalle con relaciones: residentes, placas, empleados, fotos).
 3. **Módulos faltantes** (§3): Eventos, Reservaciones, Empleados — requieren soporte de **campos relación (FK)** en el motor (selector de domicilio/espacio). Es la mejora clave del engine.
 4. **Dashboard real:** gráficas desde Supabase (agregaciones por hora/tipo). Buscador global funcional.

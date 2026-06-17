@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import * as mock from "@/lib/mock";
 import type {
   House, Plate, User, Visit, Role, HouseKind, VisitKind, VisitStatus, PlateList, Person,
+  Notice, NoticeKind, Ticket, TicketStatus,
 } from "@/lib/types";
 import type { SectionDef } from "@/lib/sections";
 
@@ -213,5 +214,206 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     };
   } catch {
     return fallback;
+  }
+}
+
+/* ---------------------------- Gráficas del dashboard --------------------- */
+export interface DashboardCharts {
+  peak: { h: string; v: number }[];
+  types: { key: string; label: string; value: number }[];
+  real: boolean; // true si proviene de Supabase con datos
+}
+
+const DEMO_CHARTS: DashboardCharts = {
+  peak: [
+    { h: "06", v: 4 }, { h: "08", v: 12 }, { h: "10", v: 9 }, { h: "12", v: 14 },
+    { h: "14", v: 18 }, { h: "16", v: 22 }, { h: "18", v: 27 }, { h: "20", v: 16 }, { h: "22", v: 6 },
+  ],
+  types: [
+    { key: "service", label: "Servicio", value: 38 },
+    { key: "employee", label: "Empleados", value: 22 },
+    { key: "visitor", label: "Visitantes", value: 51 },
+    { key: "resident", label: "Residentes", value: 17 },
+  ],
+  real: false,
+};
+
+const KIND_LABELS: Record<string, string> = {
+  visitor: "Visitantes", service: "Servicio", employee: "Empleados",
+  resident: "Residentes", provider: "Proveedores", event: "Eventos",
+};
+
+export async function getDashboardCharts(): Promise<DashboardCharts> {
+  if (!isSupabaseConfigured) return DEMO_CHARTS;
+  try {
+    const sb = await createClient();
+    const res = await sb.from("visits").select("kind,arrive_date,created_at").limit(2000);
+    const rows = (res.data ?? []) as unknown as { kind: string; arrive_date: string | null; created_at: string }[];
+    if (res.error || rows.length === 0) return DEMO_CHARTS;
+
+    // Horas pico: cuenta por hora del día (0–23) sobre la fecha de llegada (o alta).
+    const byHour = new Array(24).fill(0) as number[];
+    rows.forEach((r) => {
+      const iso = r.arrive_date ?? r.created_at;
+      if (!iso) return;
+      const h = new Date(iso).getHours();
+      if (h >= 0 && h < 24) byHour[h] += 1;
+    });
+    const peak = byHour.map((v, i) => ({ h: String(i).padStart(2, "0"), v }));
+
+    // Tipos de visita: cuenta por kind.
+    const byKind = new Map<string, number>();
+    rows.forEach((r) => byKind.set(r.kind, (byKind.get(r.kind) ?? 0) + 1));
+    const types = Array.from(byKind.entries())
+      .map(([key, value]) => ({ key, label: KIND_LABELS[key] ?? key, value }))
+      .sort((a, b) => b.value - a.value);
+
+    return { peak, types, real: true };
+  } catch {
+    return DEMO_CHARTS;
+  }
+}
+
+/* --------------------------------- Avisos -------------------------------- */
+export async function getNotices(): Promise<Notice[]> {
+  if (!isSupabaseConfigured) return mock.notices;
+  try {
+    const sb = await createClient();
+    const res = await sb
+      .from("notices")
+      .select("id,kind,description,status,created_at,houses(address)")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    interface Row { id: string; kind: string; description: string; status: string; created_at: string; houses: Rel }
+    const data = (res.data ?? []) as unknown as Row[];
+    if (res.error) return mock.notices;
+    return data.map((n): Notice => ({
+      id: n.id,
+      kind: n.kind as NoticeKind,
+      description: n.description,
+      status: n.status,
+      houseAddress: n.houses?.address ?? undefined,
+      createdAt: n.created_at,
+    }));
+  } catch {
+    return mock.notices;
+  }
+}
+
+/* ----------------------------- Sugerencias ------------------------------- */
+export async function getTickets(): Promise<Ticket[]> {
+  if (!isSupabaseConfigured) return mock.tickets;
+  try {
+    const sb = await createClient();
+    const res = await sb
+      .from("tickets")
+      .select("id,subject,description,status,created_at,ticket_categories(name),users(name)")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    interface Row {
+      id: string; subject: string; description: string | null; status: string; created_at: string;
+      ticket_categories: { name?: string | null } | null; users: Rel;
+    }
+    const data = (res.data ?? []) as unknown as Row[];
+    if (res.error) return mock.tickets;
+    return data.map((t): Ticket => ({
+      id: t.id,
+      subject: t.subject,
+      description: t.description ?? undefined,
+      category: t.ticket_categories?.name ?? "Sin categoría",
+      user: t.users?.name ?? "—",
+      status: t.status as TicketStatus,
+      createdAt: t.created_at,
+    }));
+  } catch {
+    return mock.tickets;
+  }
+}
+
+/* ------------------------------ Lista negra ------------------------------ */
+export interface BlockedIncident {
+  id: string;
+  reason: string;
+  reporter: string;
+  date: string;
+}
+export interface Blacklist {
+  plates: Plate[];
+  incidents: BlockedIncident[];
+}
+
+export async function getBlacklist(): Promise<Blacklist> {
+  const plates = (await getPlates()).filter((p) => p.list === "blacklist" || p.list === "graylist" || p.list === "report");
+  if (!isSupabaseConfigured) {
+    return {
+      plates,
+      incidents: [{ id: "bi1", reason: "Incidente reportado por guardia", reporter: "Caseta principal", date: "2026-05-02T10:00:00Z" }],
+    };
+  }
+  try {
+    const sb = await createClient();
+    const res = await sb
+      .from("incidents")
+      .select("id,reason,created_at,users(name)")
+      .eq("blacklist", true)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    interface Row { id: string; reason: string | null; created_at: string; users: Rel }
+    const data = (res.data ?? []) as unknown as Row[];
+    const incidents = res.error ? [] : data.map((i): BlockedIncident => ({
+      id: i.id,
+      reason: i.reason ?? "Sin motivo registrado",
+      reporter: i.users?.name ?? "—",
+      date: i.created_at,
+    }));
+    return { plates, incidents };
+  } catch {
+    return { plates, incidents: [] };
+  }
+}
+
+/* --------------------------------- Sedes --------------------------------- */
+export interface SiteInfo {
+  id: string;
+  name: string;
+  booths: number;
+  houses: number;
+  multiSite: boolean; // false: el tenant opera como sede única (no hay tabla sites aún)
+}
+
+export async function getSites(): Promise<SiteInfo[]> {
+  if (!isSupabaseConfigured) {
+    return mock.sites.map((s) => ({ ...s, multiSite: true }));
+  }
+  try {
+    const sb = await createClient();
+    const head = { count: "exact" as const, head: true };
+    const [resRes, boothsRes, housesRes] = await Promise.all([
+      sb.from("residentials").select("id,name").limit(1).maybeSingle(),
+      sb.from("security_booths").select("*", head),
+      sb.from("houses").select("*", head).eq("deleted", false),
+    ]);
+    const r = resRes.data as { id: string; name: string } | null;
+    if (!r) return [];
+    return [{
+      id: r.id,
+      name: r.name,
+      booths: boothsRes.count ?? 0,
+      houses: housesRes.count ?? 0,
+      multiSite: false,
+    }];
+  } catch {
+    return [];
+  }
+}
+
+export async function getResidentialName(): Promise<string | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const sb = await createClient();
+    const { data } = await sb.from("residentials").select("name").limit(1).maybeSingle();
+    return (data as { name: string } | null)?.name ?? null;
+  } catch {
+    return null;
   }
 }

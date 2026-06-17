@@ -44,8 +44,8 @@ export const visits: Visit[] = [
 ];
 
 export const notices: Notice[] = [
-  { id: "n1", title: "Corte de agua programado", kind: "general", body: "Sábado 9:00–12:00 en todo el fraccionamiento.", createdAt: "2026-06-12T08:00:00Z" },
-  { id: "n2", title: "Cuota de mantenimiento", kind: "payment", body: "Vence el 30 de junio.", createdAt: "2026-06-10T08:00:00Z" },
+  { id: "n1", kind: "general", description: "Corte de agua programado: sábado 9:00–12:00 en todo el fraccionamiento.", status: "active", createdAt: "2026-06-12T08:00:00Z" },
+  { id: "n2", kind: "payment", description: "Cuota de mantenimiento: vence el 30 de junio.", status: "active", createdAt: "2026-06-10T08:00:00Z" },
 ];
 
 export const reservations: Reservation[] = [
@@ -53,8 +53,8 @@ export const reservations: Reservation[] = [
 ];
 
 export const tickets: Ticket[] = [
-  { id: "t1", subject: "Luminaria fundida", category: "Mantenimiento", user: "Juan Pérez", status: "open", kind: "queja", createdAt: "2026-06-14T20:00:00Z" },
-  { id: "t2", subject: "Sugerencia de áreas verdes", category: "Limpieza", user: "Vecino B", status: "in_progress", kind: "sugerencia", createdAt: "2026-06-13T20:00:00Z" },
+  { id: "t1", subject: "Luminaria fundida", description: "Poste de la entrada principal sin luz.", category: "Mantenimiento", user: "Juan Pérez", status: "open", createdAt: "2026-06-14T20:00:00Z" },
+  { id: "t2", subject: "Sugerencia de áreas verdes", description: "Agregar más jardineras en el parque central.", category: "Limpieza", user: "Vecino B", status: "in_progress", createdAt: "2026-06-13T20:00:00Z" },
 ];
 
 // Los "15 reportes" mencionados en el brochure corporativo.

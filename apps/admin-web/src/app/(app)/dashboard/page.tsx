@@ -2,7 +2,7 @@ import {
   Users, Building2, Wrench, UserCheck, Smartphone, DoorOpen, TrendingUp,
 } from "lucide-react";
 import { Card, CardBody, CardHeader, CardTitle, Badge, PageHeader } from "@/components/ui";
-import { getDashboardStats, getVisits } from "@/lib/data";
+import { getDashboardStats, getVisits, getDashboardCharts } from "@/lib/data";
 import { formatDateTime } from "@/lib/utils";
 
 const STAT_META = [
@@ -14,28 +14,23 @@ const STAT_META = [
   { key: "usingApp", label: "Colonos usando la App", icon: Smartphone, tone: "text-sky-500" },
 ] as const;
 
-const peak = [
-  { h: "06", v: 4 }, { h: "08", v: 12 }, { h: "10", v: 9 }, { h: "12", v: 14 },
-  { h: "14", v: 18 }, { h: "16", v: 22 }, { h: "18", v: 27 }, { h: "20", v: 16 }, { h: "22", v: 6 },
-];
-const maxPeak = Math.max(...peak.map((p) => p.v));
-
-const visitTypes = [
-  { label: "Servicio", value: 38, tone: "bg-blue-500" },
-  { label: "Empleados", value: 22, tone: "bg-red-500" },
-  { label: "Visitantes", value: 51, tone: "bg-amber-500" },
-  { label: "Residentes", value: 17, tone: "bg-emerald-500" },
-];
-const totalTypes = visitTypes.reduce((a, b) => a + b.value, 0);
+const TYPE_TONE: Record<string, string> = {
+  service: "bg-blue-500", employee: "bg-red-500", visitor: "bg-amber-500",
+  resident: "bg-emerald-500", provider: "bg-violet-500", event: "bg-sky-500",
+};
 
 const statusTone: Record<string, "green" | "blue" | "amber" | "red" | "slate"> = {
   inside: "green", authorized: "blue", pending: "amber", denied: "red", finished: "slate",
 };
 
 export default async function DashboardPage() {
-  const [statsData, visits] = await Promise.all([getDashboardStats(), getVisits()]);
+  const [statsData, visits, charts] = await Promise.all([getDashboardStats(), getVisits(), getDashboardCharts()]);
   const stats = STAT_META.map((m) => ({ ...m, value: statsData[m.key] }));
   const recent = visits.slice(0, 6);
+  const peak = charts.peak;
+  const maxPeak = Math.max(1, ...peak.map((p) => p.v));
+  const visitTypes = charts.types.map((t) => ({ ...t, tone: TYPE_TONE[t.key] ?? "bg-slate-400" }));
+  const totalTypes = Math.max(1, visitTypes.reduce((a, b) => a + b.value, 0));
   return (
     <>
       <PageHeader
@@ -67,19 +62,22 @@ export default async function DashboardPage() {
       {/* Gráficas */}
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Horas pico de acceso</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Horas pico de acceso</CardTitle>
+            <Badge tone={charts.real ? "green" : "slate"}>{charts.real ? "Datos reales" : "Demo"}</Badge>
+          </CardHeader>
           <CardBody>
-            <div className="flex h-48 gap-2 sm:gap-3">
+            <div className="flex h-48 items-end gap-1">
               {peak.map((p) => (
                 <div key={p.h} className="flex h-full flex-1 flex-col items-center gap-2">
                   <div className="flex w-full flex-1 items-end">
                     <div
                       className="w-full rounded-t-md bg-gradient-to-t from-brand-500 to-brand-300 transition-all"
                       style={{ height: `${(p.v / maxPeak) * 100}%` }}
-                      title={`${p.v} accesos`}
+                      title={`${p.h}:00 — ${p.v} accesos`}
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400">{p.h}h</span>
+                  <span className="text-[9px] text-slate-400">{Number(p.h) % 3 === 0 ? `${p.h}h` : ""}</span>
                 </div>
               ))}
             </div>
@@ -87,19 +85,23 @@ export default async function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Tipos de visita</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Tipos de visita</CardTitle>
+            <Badge tone={charts.real ? "green" : "slate"}>{charts.real ? "Reales" : "Demo"}</Badge>
+          </CardHeader>
           <CardBody className="space-y-3">
             {visitTypes.map((t) => (
-              <div key={t.label}>
+              <div key={t.key}>
                 <div className="mb-1 flex items-center justify-between text-xs">
                   <span className="font-medium text-slate-700">{t.label}</span>
-                  <span className="text-slate-400">{Math.round((t.value / totalTypes) * 100)}%</span>
+                  <span className="text-slate-400">{Math.round((t.value / totalTypes) * 100)}% · {t.value}</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                   <div className={`h-full rounded-full ${t.tone}`} style={{ width: `${(t.value / totalTypes) * 100}%` }} />
                 </div>
               </div>
             ))}
+            {visitTypes.length === 0 && <p className="text-sm text-slate-400">Sin visitas registradas todavía.</p>}
           </CardBody>
         </Card>
       </div>

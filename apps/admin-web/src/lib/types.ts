@@ -72,11 +72,14 @@ export interface Visit {
   walking?: boolean;
 }
 
+export type NoticeKind = "general" | "house" | "emergency" | "payment";
+
 export interface Notice {
   id: string;
-  title: string;
-  kind: "general" | "house" | "emergency" | "payment";
-  body: string;
+  kind: NoticeKind;
+  description: string;
+  status: string; // 'active' | 'inactive' (texto en BD)
+  houseAddress?: string; // domicilio destino (si es aviso dirigido)
   createdAt: string;
 }
 
@@ -90,13 +93,15 @@ export interface Reservation {
   price: number;
 }
 
+export type TicketStatus = "open" | "in_progress" | "resolved" | "closed";
+
 export interface Ticket {
   id: string;
   subject: string;
+  description?: string;
   category: string;
   user: string;
-  status: "open" | "in_progress" | "resolved" | "closed";
-  kind: "queja" | "sugerencia";
+  status: TicketStatus;
   createdAt: string;
 }
 

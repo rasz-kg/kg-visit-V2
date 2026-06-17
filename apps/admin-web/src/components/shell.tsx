@@ -86,8 +86,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, residentialName }: { children: React.ReactNode; residentialName?: string | null }) {
   const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const router = useRouter();
+
+  function onSearch(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const q = query.trim();
+    router.push(q ? `/visitas?q=${encodeURIComponent(q)}` : "/visitas");
+  }
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
@@ -126,18 +134,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Menu className="h-5 w-5" />
           </button>
 
-          <div className="relative hidden max-w-md flex-1 sm:block">
+          <form onSubmit={onSearch} className="relative hidden max-w-md flex-1 sm:block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
-              placeholder="Buscar visitas, placas, domicilios…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar visitas por persona, domicilio o placa…"
               className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100"
             />
-          </div>
+          </form>
 
           <div className="ml-auto flex items-center gap-2">
-            <span className="hidden items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 sm:inline-flex">
-              <MapPin className="h-3.5 w-3.5 text-brand-500" /> Sede Norte
-            </span>
+            {residentialName && (
+              <span className="hidden items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 sm:inline-flex">
+                <MapPin className="h-3.5 w-3.5 text-brand-500" /> {residentialName}
+              </span>
+            )}
             <button className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100" aria-label="Notificaciones">
               <Bell className="h-5 w-5" />
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-500" />
