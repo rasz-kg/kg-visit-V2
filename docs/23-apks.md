@@ -1,66 +1,73 @@
-# 23 — Cómo generar los APKs (apps Residente + Guard)
+# 23 — APKs (build local funcionando)
 
-Las apps son **Expo SDK 52** sin código nativo personalizado (todo es JS + librerías Expo).
-Para distribuir un APK instalable hay dos caminos. **EAS Build cloud es el más rápido**:
-no requiere Android SDK ni Java locales.
+**Estado:** ambos APKs ya están construidos y validados en MuMu (corren standalone, sin Metro).
 
-## Pre-requisitos del Mac
+| App | Paquete | Etiqueta | Tamaño | Archivo |
+|---|---|---|---|---|
+| Residente | `com.kgvisit.app.v2` | KG-Visit | 78 MB | `apks/kg-visit-resident.apk` |
+| Caseta | `com.kgvisit.guard.v2` | KG-Visit Caseta | 78 MB | `apks/kg-visit-guard.apk` |
 
-Verificado en esta sesión (16-jun-2026):
-- ❌ Android SDK no instalado en `~/Library/Android/sdk`.
-- ❌ Java no instalado (`java -version` → "Unable to locate a Java Runtime").
-- ✅ Node + npm + npx disponibles (probado con `npx eas-cli@latest --version`).
+`apks/` está en `.gitignore` (los binarios no entran al repo). Si los necesitas
+en otra máquina, los reconstruyes con el procedimiento de abajo.
 
-→ Build **local** (gradle) está fuera de alcance para esta sesión. **Usamos EAS Build cloud**.
+## Toolchain instalada en este Mac (verificada)
+- ✅ Android Studio + SDK en `~/Library/Android/sdk`
+- ✅ `build-tools 36.1.0 + 37.0.0`, `platforms android-36.1`
+- ✅ JDK 17 (Homebrew formula): `/opt/homebrew/opt/openjdk@17`
+- ✅ `sdkmanager` (Homebrew android-commandlinetools)
+- ❌ No requiere `gradle` global — usamos el wrapper de cada app.
 
-## Camino A — EAS Build cloud (recomendado, 1 vez por app)
+## Build (1 comando por app)
 
-1) **Crear cuenta Expo** (gratis) en https://expo.dev/signup si no tienes una.
-2) **Login en el CLI**:
-   ```bash
-   npx eas-cli@latest login
-   ```
-3) **Configurar proyecto EAS** (en cada app, primera vez):
-   ```bash
-   cd apps/resident
-   npx eas-cli@latest init     # crea projectId si falta; ya tenemos eas.json
-   cd ../guard
-   npx eas-cli@latest init
-   ```
-   El `eas.json` ya existe en ambas con perfiles `preview` (APK instalable) y `production` (AAB).
-4) **Build APK preview** (instalable directo en MuMu/dispositivo):
-   ```bash
-   cd apps/resident && npx eas-cli@latest build --platform android --profile preview
-   cd ../guard       && npx eas-cli@latest build --platform android --profile preview
-   ```
-   EAS sube el código, builda en sus servidores (10-20 min cada uno) y devuelve URL de descarga del `.apk`.
-5) **Instalar el APK** en MuMu (drag-and-drop) o en cualquier Android:
-   ```bash
-   "/Applications/MuMuPlayer Pro.app/Contents/MacOS/MuMu Android Device.app/Contents/MacOS/tools/adb" install <archivo.apk>
-   ```
+```bash
+export JAVA_HOME="/opt/homebrew/opt/openjdk@17"
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 
-## Camino B — Local (requiere setup adicional)
+# Residente
+cd apps/resident
+npx expo prebuild --platform android --clean
+bash ../../scripts/apply-android-patches.sh apps/resident  # <- fix Kotlin (ver §issue)
+cd android && ./gradlew assembleRelease
+# APK queda en: android/app/build/outputs/apk/release/app-release.apk
+cp android/app/build/outputs/apk/release/app-release.apk ../../apks/kg-visit-resident.apk
 
-Si más adelante quieres builds offline, instala:
-1) Android Studio (Android SDK + Platform-Tools + NDK).
-2) JDK 17 (`brew install --cask zulu@17`).
-3) Configura `ANDROID_HOME`, `JAVA_HOME` en `~/.zshrc`.
-4) Luego:
-   ```bash
-   cd apps/resident
-   npx expo prebuild --platform android
-   cd android && ./gradlew assembleRelease
-   # APK queda en android/app/build/outputs/apk/release/app-release.apk
-   ```
-Mismo procedimiento para `apps/guard`. Estimado: 60-90 min de setup inicial.
+# Guard (idéntico)
+cd apps/guard
+npx expo prebuild --platform android --clean
+bash ../../scripts/apply-android-patches.sh apps/guard
+cd android && ./gradlew assembleRelease
+cp android/app/build/outputs/apk/release/app-release.apk ../../apks/kg-visit-guard.apk
+```
 
-## Perfiles definidos en `eas.json` (ambas apps)
+## El issue de Kotlin (parche reusable)
 
-- **preview** → APK firmado con keystore generado por EAS, `distribution: internal`. Ideal
-  para subirlo a MuMu o WhatsApp y probarlo en cualquier Android.
-- **production** → Bundle AAB para subir a Play Console (no APK; Play Store requiere AAB).
+Expo SDK 52 + RN 0.76 trae Compose Compiler 1.5.15 (vía expo-modules-core) que exige
+Kotlin 1.9.25, pero el classpath de RN viene con 1.9.24 → build falla. El script
+`scripts/apply-android-patches.sh` aplica 2 cambios al proyecto generado:
 
-## Credenciales de prueba (cortas)
+1. **`gradle.properties`**: agrega `android.kotlinVersion=1.9.25`,
+   `kotlin.version=1.9.25` y `android.suppressKotlinVersionCompatibilityCheck=true`.
+2. **`android/build.gradle`**:
+   - Hace explícita la versión del classpath: `classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}")`.
+   - Añade `subprojects { sub -> resolutionStrategy.eachDependency { ... useVersion kotlinVersion } }`
+     para forzar la versión en TODOS los módulos (incluido expo-modules-core).
+
+Se debe re-ejecutar el script cada vez que se haga `expo prebuild --clean` (que
+regenera la carpeta android/ desde cero).
+
+## Instalar en MuMu / dispositivo
+
+```bash
+ADB="/Applications/MuMuPlayer Pro.app/Contents/MacOS/MuMu Android Device.app/Contents/MacOS/tools/adb"
+"$ADB" -s 127.0.0.1:5555 install -r apks/kg-visit-resident.apk
+"$ADB" -s 127.0.0.1:5555 install -r apks/kg-visit-guard.apk
+```
+
+Validado: ambos APKs arrancan standalone en MuMu (sin Metro ni Expo Go), muestran
+la pantalla de login premium y se conectan a Supabase real.
+
+## Credenciales de prueba (mínimo Supabase: 6 chars)
 
 | Sistema | Email | Password |
 |---|---|---|
@@ -68,12 +75,13 @@ Mismo procedimiento para `apps/guard`. Estimado: 60-90 min de setup inicial.
 | App Residente | `r@k.mx` | `123456` |
 | App Guardia | `g@k.mx` | `123456` |
 
-(`Supabase` no permite contraseñas de menos de 6 caracteres por política de seguridad.)
+## Próximos pasos
 
-## Identificadores nativos (app.json)
-
-- Residente: `com.kgvisit.app.v2` (Android + iOS).
-- Guard: `com.kgvisit.guard.v2`.
-
-Estos coexisten con los clones V1 ya instalados (`com.kgvisit.app`, `com.kgvisit.guard`), así
-que puedes tener ambas versiones lado a lado para comparar.
+- **Firma de release real**: hoy el APK usa el debug keystore de RN. Para Play Store
+  hay que generar un upload keystore con `keytool` y configurarlo en
+  `android/app/build.gradle` antes del próximo `assembleRelease`. Documentado en
+  Expo Docs > "Sign your app".
+- **Bundle AAB** (formato Play Store): `./gradlew bundleRelease` en lugar de
+  `assembleRelease`. El perfil `production` de `eas.json` ya lo contempla.
+- **Versionado**: cambiar `versionCode` y `versionName` en `app.json` antes de cada
+  release (el prebuild los propaga al `android/app/build.gradle`).

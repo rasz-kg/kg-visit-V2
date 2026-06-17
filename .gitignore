@@ -34,3 +34,4 @@ yarn-error.log*
 # Análisis (artefactos temporales de APKs)
 /_apks/
 /_decompiled/
+apks/
