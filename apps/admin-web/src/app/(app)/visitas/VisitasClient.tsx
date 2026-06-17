@@ -1,12 +1,16 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus, Footprints, QrCode, Package, Flag, Search, Filter,
 } from "lucide-react";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
 import type { Visit, VisitKind, VisitStatus } from "@/lib/types";
+import {
+  authorizeVisit, giveAccess, markLeave, reportVisit, notifyPackage, type ActionState,
+} from "./actions";
 
 const KIND_LABEL: Record<VisitKind, string> = {
   visitor: "Visitante", employee: "Empleado", service: "Servicio",
@@ -73,37 +77,69 @@ export function VisitasClient({ visits: allVisits }: { visits: Visit[] }) {
       </Card>
 
       <div className="space-y-3">
-        {visits.map((v) => (
-          <Card key={v.id} className="p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-slate-900">{v.title}</span>
-                  <Badge tone={STATUS_TONE[v.status]}>{STATUS_LABEL[v.status]}</Badge>
-                  <Badge tone="violet">{KIND_LABEL[v.kind]}</Badge>
-                  {v.createdByGuard && <Badge tone="slate">Creada por guardia</Badge>}
-                  {v.walking && <Badge tone="blue">Caminando</Badge>}
-                </div>
-                <p className="mt-1 text-sm text-slate-500">
-                  {v.who} · {v.houseAddress}{v.site ? ` · ${v.site}` : ""}{v.plate ? ` · 🚗 ${v.plate}` : ""}
-                </p>
-                <p className="mt-0.5 text-xs text-slate-400">
-                  Llegada: {formatDateTime(v.arriveDate)} · Salida: {formatDateTime(v.leaveDate)}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {v.status === "pending" && <Button>Autorizar</Button>}
-                {(v.status === "authorized" || v.status === "inside") && <Button variant="dark">Dar acceso</Button>}
-                <Button variant="outline"><Package className="h-4 w-4" /> Paquetería</Button>
-                <Button variant="danger"><Flag className="h-4 w-4" /> Reportar</Button>
-              </div>
-            </div>
-          </Card>
-        ))}
+        {visits.map((v) => <VisitRowCard key={v.id} v={v} />)}
         {visits.length === 0 && (
           <Card className="p-10 text-center text-sm text-slate-500">Sin visitas que coincidan con los filtros.</Card>
         )}
       </div>
     </>
+  );
+}
+
+function VisitRowCard({ v }: { v: Visit }) {
+  const router = useRouter();
+  const [pending, startTransition] = React.useTransition();
+  const [error, setError] = React.useState<string | null>(null);
+
+  function run(action: (id: string) => Promise<ActionState>) {
+    setError(null);
+    startTransition(async () => {
+      const res = await action(v.id);
+      if (res && !res.ok) {
+        setError(res.error ?? "No se pudo completar la acción.");
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  return (
+    <Card className="p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-slate-900">{v.title}</span>
+            <Badge tone={STATUS_TONE[v.status]}>{STATUS_LABEL[v.status]}</Badge>
+            <Badge tone="violet">{KIND_LABEL[v.kind]}</Badge>
+            {v.createdByGuard && <Badge tone="slate">Creada por guardia</Badge>}
+            {v.walking && <Badge tone="blue">Caminando</Badge>}
+          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            {v.who} · {v.houseAddress}{v.site ? ` · ${v.site}` : ""}{v.plate ? ` · 🚗 ${v.plate}` : ""}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-400">
+            Llegada: {formatDateTime(v.arriveDate)} · Salida: {formatDateTime(v.leaveDate)}
+          </p>
+          {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {v.status === "pending" && (
+            <Button disabled={pending} onClick={() => run(authorizeVisit)}>Autorizar</Button>
+          )}
+          {v.status === "authorized" && (
+            <Button variant="dark" disabled={pending} onClick={() => run(giveAccess)}>Dar acceso</Button>
+          )}
+          {v.status === "inside" && (
+            <Button variant="dark" disabled={pending} onClick={() => run(markLeave)}>Salida</Button>
+          )}
+          <Button variant="outline" disabled={pending} onClick={() => run(notifyPackage)}>
+            <Package className="h-4 w-4" /> Paquetería
+          </Button>
+          <Button variant="danger" disabled={pending} onClick={() => run(reportVisit)}>
+            <Flag className="h-4 w-4" /> Reportar
+          </Button>
+        </div>
+      </div>
+    </Card>
   );
 }
