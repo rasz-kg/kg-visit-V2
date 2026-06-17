@@ -10,27 +10,41 @@ export function useIsTablet(): boolean {
   return width >= TABLET_MIN_WIDTH;
 }
 
-// Paleta KG-Visit (alineada con el portal admin y la app V1: naranja sobre tinta oscura).
+// Paleta KG-Visit V2 — light mode premium para caseta. Inspirada en la app
+// original (VisitApp Guard) que usa un header brillante a todo lo ancho con
+// botones outline blancos, y aterriza la identidad KG (naranja #f97316).
+// El resto de la pantalla queda en light mode para máxima legibilidad bajo
+// la luz fuerte que suele haber en una caseta de control.
 export const colors = {
-  brand: "#f97316", // naranja KG-Visit
+  brand: "#f97316",        // naranja KG primario (header)
   brandDark: "#ea580c",
-  brandSoft: "#ffedd5",
-  ink: "#1f2430", // tinta oscura (header)
-  ink800: "#2b3140",
-  bg: "#f4f4f5",
-  card: "#ffffff",
-  border: "#e4e4e7",
-  text: "#18181b",
-  textMuted: "#71717a",
-  textFaint: "#a1a1aa",
-  green: "#10b981",
-  red: "#ef4444",
-  amber: "#f59e0b",
-  blue: "#3b82f6",
+  brandSoft: "#ffedd5",    // hover/press del brand
+
+  bg: "#f8fafc",           // fondo principal
+  card: "#ffffff",         // tarjetas/superficies
+  border: "#e2e8f0",       // borde sutil
+  borderStrong: "#cbd5e1",
+
+  ink: "#0f172a",          // tinta oscura (para footer/modal headers si fuera necesario)
+  ink800: "#1e293b",
+
+  text: "#0f172a",
+  textMuted: "#475569",
+  textFaint: "#94a3b8",
+
+  // Utilidades cromáticas para el header naranja:
+  // overlays blancos translúcidos (search, chips outline, hover sutil)
+  headerOverlay: "rgba(255,255,255,0.18)",
+  headerOverlayStrong: "rgba(255,255,255,0.28)",
+
+  green: "#16a34a",
+  red: "#dc2626",
+  amber: "#d97706",
+  blue: "#2563eb",
 };
 
-export const radius = { sm: 8, md: 12, lg: 16, xl: 22 };
-export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };
+export const radius = { sm: 10, md: 14, lg: 18, xl: 24, pill: 999 };
+export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, "2xl": 32 };
 
 // Mapa de estatus de visita → etiqueta + color (espejo del portal/admin).
 export const VISIT_STATUS: Record<string, { label: string; color: string }> = {

@@ -24,7 +24,7 @@ export default function AvisosScreen() {
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={() => router.back()} style={{ padding: 4 }}><ChevronLeft color="#fff" size={26} /></Pressable>
+        <Pressable onPress={() => router.back()} style={{ padding: 4 }}><ChevronLeft color={colors.text} size={26} /></Pressable>
         <Text style={styles.title}>Avisos</Text>
       </View>
       {loading ? (
@@ -33,20 +33,25 @@ export default function AvisosScreen() {
         <FlatList
           data={notices}
           keyExtractor={(n) => n.id}
-          contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}
+          contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 }}
           ListEmptyComponent={<Text style={styles.empty}>No hay avisos por ahora.</Text>}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <View style={styles.cardTop}>
-                <View style={styles.iconWrap}><Megaphone color={colors.brand} size={18} /></View>
-                <View style={[styles.badge, { backgroundColor: (KIND_COLOR[item.kind] ?? colors.textMuted) + "22" }]}>
-                  <Text style={[styles.badgeText, { color: KIND_COLOR[item.kind] ?? colors.textMuted }]}>{KIND_LABEL[item.kind] ?? item.kind}</Text>
+          renderItem={({ item }) => {
+            const tint = KIND_COLOR[item.kind] ?? colors.textMuted;
+            return (
+              <View style={styles.card}>
+                <View style={styles.cardTop}>
+                  <View style={[styles.iconWrap, { backgroundColor: tint + "22" }]}>
+                    <Megaphone color={tint} size={20} />
+                  </View>
+                  <View style={[styles.badge, { backgroundColor: tint + "22" }]}>
+                    <Text style={[styles.badgeText, { color: tint }]}>{KIND_LABEL[item.kind] ?? item.kind}</Text>
+                  </View>
                 </View>
+                <Text style={styles.body}>{item.description}</Text>
+                <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
               </View>
-              <Text style={styles.body}>{item.description}</Text>
-              <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
-            </View>
-          )}
+            );
+          }}
         />
       )}
     </View>
@@ -55,14 +60,28 @@ export default function AvisosScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  header: { backgroundColor: colors.ink, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  title: { color: "#fff", fontSize: 22, fontWeight: "800" },
+  header: {
+    backgroundColor: colors.bg, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
+    flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  title: { color: colors.text, fontSize: 22, fontWeight: "800" },
   empty: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl },
-  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    borderWidth: 1, borderColor: colors.border,
+    shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
   cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  iconWrap: { width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
-  badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
-  badgeText: { fontSize: 12, fontWeight: "600" },
-  body: { color: colors.text, fontSize: 15, marginTop: spacing.md },
+  iconWrap: {
+    width: 44, height: 44, borderRadius: radius.md,
+    alignItems: "center", justifyContent: "center",
+  },
+  badge: { borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5 },
+  badgeText: { fontSize: 11, fontWeight: "700", letterSpacing: 0.3 },
+  body: { color: colors.text, fontSize: 15, marginTop: spacing.md, lineHeight: 22 },
   date: { color: colors.textFaint, fontSize: 12, marginTop: spacing.sm },
 });

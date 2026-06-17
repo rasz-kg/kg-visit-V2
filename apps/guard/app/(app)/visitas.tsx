@@ -5,7 +5,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Search, QrCode, ScanLine, Menu, Check, X, LogIn, LogOut, Flag, Plus, type LucideIcon } from "lucide-react-native";
+import {
+  Search, QrCode, ScanLine, Menu, Check, X, LogIn, LogOut, Flag, Plus,
+  Clock, Car, ChevronDown, type LucideIcon,
+} from "lucide-react-native";
 import { useBooth } from "@/lib/booth";
 import {
   getTodayVisits, formatDate, authorizeVisit, denyVisit, giveAccess, leaveVisit, reportVisit,
@@ -17,6 +20,9 @@ import { colors, radius, spacing, useIsTablet, VISIT_STATUS, VISIT_KIND } from "
 const KIND_FILTERS = ["visitor", "service", "employee", "resident", "provider", "event"] as const;
 const STATUS_FILTERS = ["pending", "authorized", "inside", "finished", "denied"] as const;
 
+// Pantalla 1 — Visitas del día. Header naranja a todo lo ancho con buscador,
+// filtros pill y accesos rápidos (QR Auto / QR Caminando / hamburguesa /
+// historial). Lista light-mode con cards y FAB "+" flotante.
 export default function VisitasScreen() {
   const { booth } = useBooth();
   const insets = useSafeAreaInsets();
@@ -61,62 +67,93 @@ export default function VisitasScreen() {
 
   return (
     <View style={styles.root}>
-      {/* Barra superior oscura */}
+      {/* Header naranja brillante (la firma estética de VisitApp Guard) */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.brand}>KG-<Text style={{ color: colors.brand }}>Visit</Text></Text>
-            <Text style={styles.headerSub}>Control de accesos · {booth?.name ?? "Sin caseta"}</Text>
+        <View style={[styles.headerInner, isTablet && styles.headerInnerTablet]}>
+          {/* Fila superior: logo · buscador · iconos */}
+          <View style={styles.headerTop}>
+            <View style={styles.brandWrap}>
+              <Text style={styles.brand}>KG-Visit</Text>
+              <Text style={styles.brandSub}>{booth?.name ?? "Sin caseta"}</Text>
+            </View>
+
+            <View style={[styles.searchRow, isTablet && styles.searchRowTablet]}>
+              <Search color="#fff" size={18} />
+              <TextInput
+                style={styles.searchInput}
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Buscar por asunto o folio…"
+                placeholderTextColor="rgba(255,255,255,0.7)"
+                autoCapitalize="none"
+                returnKeyType="search"
+                onSubmitEditing={() => load()}
+              />
+            </View>
+
+            <View style={styles.headerIcons}>
+              <Pressable style={styles.iconBtn} hitSlop={8} onPress={() => openQr("auto")}>
+                <Car color="#fff" size={20} />
+              </Pressable>
+              <Pressable
+                style={styles.iconBtn}
+                hitSlop={8}
+                onPress={() => Alert.alert("Historial", "Disponible próximamente.")}
+              >
+                <Clock color="#fff" size={20} />
+              </Pressable>
+              <Pressable style={styles.iconBtn} hitSlop={8} onPress={() => router.push("/(app)/menu")}>
+                <Menu color="#fff" size={22} />
+              </Pressable>
+            </View>
           </View>
-          <Pressable hitSlop={8} onPress={() => router.push("/(app)/menu")}>
-            <Menu color="#fff" size={24} />
-          </Pressable>
-        </View>
 
-        {/* Buscador */}
-        <View style={styles.searchRow}>
-          <Search color={colors.textFaint} size={18} />
-          <TextInput
-            style={styles.searchInput}
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Buscar por asunto o folio…"
-            placeholderTextColor={colors.textFaint}
-            autoCapitalize="none"
-            returnKeyType="search"
-            onSubmitEditing={() => load()}
-          />
-        </View>
+          {/* Fila inferior: filtros pill y CTAs QR */}
+          <View style={styles.headerBottom}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterRow}
+            >
+              <FilterPill
+                label="Tipo Visita"
+                active={kind ? (VISIT_KIND[kind] ?? kind) : null}
+                options={KIND_FILTERS.map((k) => ({ value: k, label: VISIT_KIND[k] ?? k }))}
+                onPick={(v) => setKind((p) => (p === v ? null : v))}
+              />
+              <FilterPill
+                label="Status"
+                active={status ? (VISIT_STATUS[status]?.label ?? status) : null}
+                options={STATUS_FILTERS.map((k) => ({ value: k, label: VISIT_STATUS[k]?.label ?? k }))}
+                onPick={(v) => setStatus((p) => (p === v ? null : v))}
+              />
+              <FilterPill
+                label="Caseta"
+                active={booth?.name ?? null}
+                options={[]}
+                disabled
+              />
+            </ScrollView>
 
-        {/* Botones QR + Nueva visita */}
-        <View style={styles.qrRow}>
-          <Pressable style={styles.qrBtn} onPress={() => openQr("auto")}>
-            <QrCode color="#fff" size={16} />
-            <Text style={styles.qrText}>QR Auto</Text>
-          </Pressable>
-          <Pressable style={styles.qrBtn} onPress={() => openQr("walking")}>
-            <ScanLine color="#fff" size={16} />
-            <Text style={styles.qrText}>QR Caminando</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.qrBtn, { backgroundColor: colors.brand }]}
-            onPress={() => router.push("/(app)/nueva-visita")}
-          >
-            <Plus color="#fff" size={16} />
-            <Text style={styles.qrText}>Nueva visita</Text>
-          </Pressable>
+            <View style={styles.qrRow}>
+              <Pressable style={styles.qrBtn} onPress={() => openQr("auto")}>
+                <QrCode color="#fff" size={16} />
+                <Text style={styles.qrText}>QR Auto</Text>
+              </Pressable>
+              <Pressable style={styles.qrBtn} onPress={() => openQr("walking")}>
+                <ScanLine color="#fff" size={16} />
+                <Text style={styles.qrText}>QR Caminando</Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
       </View>
 
-      {/* Filtros */}
-      <View style={styles.filters}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          <FilterGroup label="Tipo" active={kind} options={KIND_FILTERS} labels={VISIT_KIND}
-            onPick={(v) => setKind((p) => (p === v ? null : v))} />
-          <FilterGroup label="Status" active={status} options={STATUS_FILTERS}
-            labels={Object.fromEntries(Object.entries(VISIT_STATUS).map(([k, v]) => [k, v.label]))}
-            onPick={(v) => setStatus((p) => (p === v ? null : v))} />
-        </ScrollView>
+      {/* Encabezados de columnas estilo tabla (sutil) */}
+      <View style={[styles.tableHead, isTablet && styles.tableHeadTablet]}>
+        <Text style={[styles.tableHeadCell, { flex: 2 }]}>Visita</Text>
+        <Text style={[styles.tableHeadCell, { flex: 1 }]}>Tipo</Text>
+        <Text style={[styles.tableHeadCell, { flex: 1, textAlign: "right" }]}>Fecha / Hora</Text>
       </View>
 
       {/* Listado */}
@@ -130,7 +167,10 @@ export default function VisitasScreen() {
           // key forza el re-mount al cambiar # de columnas (FlatList lo exige).
           key={isTablet ? "grid-2" : "list-1"}
           columnWrapperStyle={isTablet ? { gap: spacing.md } : undefined}
-          contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}
+          contentContainerStyle={[
+            { padding: spacing.md, gap: spacing.md, paddingBottom: 120 },
+            isTablet && { paddingHorizontal: spacing.xl, maxWidth: 1200, alignSelf: "center", width: "100%" },
+          ]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
           ListEmptyComponent={<Text style={styles.empty}>No hay visitas para los filtros actuales.</Text>}
           renderItem={({ item }) => (
@@ -148,31 +188,47 @@ export default function VisitasScreen() {
           )}
         />
       )}
+
+      {/* FAB flotante naranja — Nueva visita */}
+      <Pressable
+        style={[styles.fab, { bottom: insets.bottom + spacing.lg }]}
+        onPress={() => router.push("/(app)/nueva-visita")}
+        accessibilityLabel="Nueva visita"
+      >
+        <Plus color="#fff" size={28} />
+      </Pressable>
     </View>
   );
 }
 
-function FilterGroup({
-  label, active, options, labels, onPick,
+// Filtro pill estilo VisitApp: outline blanco sobre header naranja, con flechita.
+// Al pulsar abre un menú simple (Alert.actionSheet-style) usando Alert nativo.
+function FilterPill({
+  label, active, options, onPick, disabled,
 }: {
   label: string;
   active: string | null;
-  options: readonly string[];
-  labels: Record<string, string>;
-  onPick: (v: string) => void;
+  options: { value: string; label: string }[];
+  onPick?: (v: string) => void;
+  disabled?: boolean;
 }) {
+  function open() {
+    if (disabled || !onPick || options.length === 0) return;
+    Alert.alert(label, "Selecciona una opción", [
+      { text: "Limpiar", style: "destructive", onPress: () => onPick("") },
+      ...options.map((o) => ({ text: o.label, onPress: () => onPick(o.value) })),
+      { text: "Cerrar", style: "cancel" },
+    ]);
+  }
   return (
-    <View style={styles.group}>
-      <Text style={styles.groupLabel}>{label}</Text>
-      {options.map((opt) => {
-        const on = active === opt;
-        return (
-          <Pressable key={opt} style={[styles.chip, on && styles.chipOn]} onPress={() => onPick(opt)}>
-            <Text style={[styles.chipText, on && styles.chipTextOn]}>{labels[opt] ?? opt}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
+    <Pressable
+      style={[styles.pill, active && styles.pillActive, disabled && { opacity: 0.6 }]}
+      onPress={open}
+      disabled={disabled}
+    >
+      <Text style={styles.pillText}>{active ?? label}</Text>
+      <ChevronDown color="#fff" size={14} />
+    </Pressable>
   );
 }
 
@@ -191,12 +247,11 @@ function VisitRow({
 }) {
   const st = VISIT_STATUS[item.status] ?? { label: item.status, color: colors.textMuted };
   const kindLabel = VISIT_KIND[item.kind] ?? item.kind;
-  // En tablet cada tarjeta ocupa la mitad del ancho del grid (2 columnas).
   return (
-    <Pressable style={[styles.card, tablet && { flex: 1 }]} onPress={onOpen}>
+    <Pressable style={({ pressed }) => [styles.card, tablet && { flex: 1 }, pressed && styles.cardPressed]} onPress={onOpen}>
       <View style={styles.cardTop}>
         <Text style={styles.subject} numberOfLines={1}>{item.subject || item.who}</Text>
-        <View style={[styles.badge, { backgroundColor: st.color + "22" }]}>
+        <View style={[styles.badge, { backgroundColor: st.color + "1a" }]}>
           <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
         </View>
       </View>
@@ -242,7 +297,11 @@ function ActionBtn({
   const outline = tone === "muted";
   return (
     <Pressable
-      style={[styles.action, outline ? { borderColor: color, borderWidth: 1 } : { backgroundColor: color }]}
+      style={({ pressed }) => [
+        styles.action,
+        outline ? { borderColor: color, borderWidth: 1, backgroundColor: "#fff" } : { backgroundColor: color },
+        pressed && { opacity: 0.85 },
+      ]}
       onPress={onPress}
       disabled={busy}
     >
@@ -254,42 +313,114 @@ function ActionBtn({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  header: { backgroundColor: colors.ink, paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
-  headerTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  brand: { color: "#fff", fontSize: 22, fontWeight: "800" },
-  headerSub: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
+
+  // Header naranja brillante
+  header: {
+    backgroundColor: colors.brand,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  headerInner: { gap: spacing.md },
+  headerInnerTablet: { maxWidth: 1200, width: "100%", alignSelf: "center" },
+  headerTop: {
+    flexDirection: "row", alignItems: "center", gap: spacing.md,
+  },
+  brandWrap: { minWidth: 120 },
+  brand: { color: "#fff", fontSize: 24, fontWeight: "800", letterSpacing: 0.3 },
+  brandSub: { color: "rgba(255,255,255,0.85)", fontSize: 11, marginTop: 2, fontWeight: "600" },
+
   searchRow: {
+    flex: 1,
     flexDirection: "row", alignItems: "center", gap: spacing.sm,
-    backgroundColor: colors.ink800, borderRadius: radius.md, paddingHorizontal: spacing.md,
-    marginTop: spacing.md,
+    backgroundColor: colors.headerOverlay,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md, paddingVertical: 8,
+    minHeight: 40,
   },
-  searchInput: { flex: 1, color: "#fff", paddingVertical: spacing.sm, fontSize: 14 },
-  qrRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+  searchRowTablet: { paddingHorizontal: spacing.lg, paddingVertical: 10 },
+  searchInput: { flex: 1, color: "#fff", fontSize: 14, paddingVertical: 0 },
+
+  headerIcons: { flexDirection: "row", gap: spacing.xs, alignItems: "center" },
+  iconBtn: {
+    width: 38, height: 38, borderRadius: radius.pill,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.headerOverlay,
+  },
+
+  headerBottom: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    gap: spacing.md, flexWrap: "wrap",
+  },
+  filterRow: { flexDirection: "row", gap: spacing.sm, alignItems: "center", paddingRight: spacing.md },
+  pill: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 7,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.6)",
+    backgroundColor: "transparent",
+  },
+  pillActive: { backgroundColor: colors.headerOverlayStrong, borderColor: "#fff" },
+  pillText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+
+  qrRow: { flexDirection: "row", gap: spacing.sm },
   qrBtn: {
-    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
-    backgroundColor: colors.ink800, borderRadius: radius.md, paddingVertical: spacing.sm,
+    flexDirection: "row", alignItems: "center", gap: 6,
+    borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 8,
+    borderWidth: 1, borderColor: "#fff",
+    backgroundColor: "transparent",
   },
-  qrText: { color: "#fff", fontSize: 13, fontWeight: "600" },
-  filters: { backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border },
-  filterRow: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.md, alignItems: "center" },
-  group: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  groupLabel: { fontSize: 12, fontWeight: "700", color: colors.textMuted, marginRight: 2 },
-  chip: { backgroundColor: colors.bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: colors.border },
-  chipOn: { backgroundColor: colors.brand, borderColor: colors.brand },
-  chipText: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
-  chipTextOn: { color: "#fff" },
+  qrText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+
+  // Cabecera de tabla
+  tableHead: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm,
+    backgroundColor: colors.bg,
+  },
+  tableHeadTablet: { maxWidth: 1200, width: "100%", alignSelf: "center", paddingHorizontal: spacing.xl },
+  tableHeadCell: {
+    fontSize: 11, fontWeight: "700", color: colors.textFaint,
+    textTransform: "uppercase", letterSpacing: 0.6,
+  },
+
   empty: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl, paddingHorizontal: spacing.xl },
-  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
+
+  // Cards
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 1, borderColor: colors.border,
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  cardPressed: { backgroundColor: "#f1f5f9" },
   cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
-  subject: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.text },
-  badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
-  badgeText: { fontSize: 12, fontWeight: "600" },
-  meta: { color: colors.textMuted, fontSize: 13, marginTop: 6 },
+  subject: { flex: 1, fontSize: 16, fontWeight: "700", color: colors.text },
+  badge: { borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
+  badgeText: { fontSize: 12, fontWeight: "700" },
+  meta: { color: colors.textMuted, fontSize: 13, marginTop: 8, fontWeight: "500" },
   metaFaint: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
   action: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8,
   },
   actionText: { fontSize: 13, fontWeight: "700" },
+
+  // FAB
+  fab: {
+    position: "absolute",
+    right: spacing.xl,
+    width: 64, height: 64, borderRadius: radius.pill,
+    backgroundColor: colors.brand,
+    alignItems: "center", justifyContent: "center",
+    shadowColor: colors.brand,
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
 });

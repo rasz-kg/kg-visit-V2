@@ -41,7 +41,7 @@ export default function SugerenciasScreen() {
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
-          <ChevronLeft color="#fff" size={26} />
+          <ChevronLeft color={colors.text} size={26} />
         </Pressable>
         <Text style={styles.title}>Sugerencias</Text>
       </View>
@@ -52,8 +52,13 @@ export default function SugerenciasScreen() {
         <FlatList
           data={items}
           keyExtractor={(i) => i.id}
-          contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}
-          ListEmptyComponent={<Text style={styles.empty}>Aún no tienes sugerencias o quejas.</Text>}
+          contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 120 }}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyIcon}><MessageCircleQuestion color={colors.cyan} size={28} /></View>
+              <Text style={styles.empty}>Aún no tienes sugerencias o quejas.</Text>
+            </View>
+          }
           renderItem={({ item }) => {
             const status = item.status ?? "open";
             const color = STATUS_COLOR[status] ?? colors.textMuted;
@@ -75,8 +80,8 @@ export default function SugerenciasScreen() {
         />
       )}
 
-      <Pressable style={styles.fab} onPress={() => setModalOpen(true)}>
-        <Plus color="#fff" size={28} />
+      <Pressable style={({ pressed }) => [styles.fab, pressed && { transform: [{ scale: 0.96 }] }]} onPress={() => setModalOpen(true)}>
+        <Plus color="#fff" size={30} strokeWidth={2.5} />
       </Pressable>
 
       <NewTicketModal
@@ -120,6 +125,7 @@ function NewTicketModal({
     <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalRoot}>
         <View style={styles.modalCard}>
+          <View style={styles.modalHandle} />
           <View style={styles.modalHead}>
             <MessageCircleQuestion color={colors.brand} size={22} />
             <Text style={styles.modalTitle}>Nueva sugerencia</Text>
@@ -182,45 +188,57 @@ function NewTicketModal({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   header: {
-    backgroundColor: colors.ink, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
+    backgroundColor: colors.bg, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
     flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  title: { color: "#fff", fontSize: 22, fontWeight: "800" },
-  empty: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl },
+  title: { color: colors.text, fontSize: 22, fontWeight: "800" },
+  emptyWrap: { alignItems: "center", paddingTop: spacing.xl * 2, gap: spacing.sm },
+  emptyIcon: {
+    width: 64, height: 64, borderRadius: 32, backgroundColor: colors.cyan + "22",
+    alignItems: "center", justifyContent: "center", marginBottom: spacing.sm,
+  },
+  empty: { textAlign: "center", color: colors.text, fontSize: 16, fontWeight: "700" },
   card: {
-    backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg,
+    backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg,
     borderWidth: 1, borderColor: colors.border,
+    shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
-  cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  subject: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.text, marginRight: spacing.sm },
-  badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
-  badgeText: { fontSize: 12, fontWeight: "700" },
-  meta: { color: colors.textMuted, fontSize: 13, marginTop: 6 },
-  desc: { color: colors.text, fontSize: 14, marginTop: 6 },
-  date: { color: colors.textFaint, fontSize: 12, marginTop: 6 },
+  cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  subject: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.text },
+  badge: { borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5 },
+  badgeText: { fontSize: 11, fontWeight: "700", letterSpacing: 0.3 },
+  meta: { color: colors.textMuted, fontSize: 13, marginTop: 8 },
+  desc: { color: colors.text, fontSize: 14, marginTop: 6, lineHeight: 20 },
+  date: { color: colors.textFaint, fontSize: 12, marginTop: 8 },
   fab: {
-    position: "absolute", right: spacing.lg, bottom: spacing.lg,
-    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand,
-    alignItems: "center", justifyContent: "center", elevation: 4,
-    shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    position: "absolute", right: spacing.xl, bottom: spacing.xl,
+    width: 64, height: 64, borderRadius: 32, backgroundColor: colors.brand,
+    alignItems: "center", justifyContent: "center", elevation: 8,
+    shadowColor: colors.brand, shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 6 },
   },
-  modalRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  modalRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
   modalCard: {
-    backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
-    padding: spacing.lg, maxHeight: "85%",
+    backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+    padding: spacing.lg, maxHeight: "88%",
+    borderTopWidth: 1, borderColor: colors.border,
+  },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong,
+    alignSelf: "center", marginBottom: spacing.md,
   },
   modalHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   modalTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
-  label: { fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: 6 },
+  label: { fontSize: 12, fontWeight: "700", color: colors.textMuted, marginBottom: 6, letterSpacing: 0.5, textTransform: "uppercase" },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md, fontSize: 15,
+    paddingHorizontal: spacing.md + 2, paddingVertical: spacing.md, fontSize: 15,
     color: colors.text, backgroundColor: colors.bg,
   },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   chip: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: 999,
-    paddingHorizontal: spacing.md, paddingVertical: 8, backgroundColor: colors.bg,
+    borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill,
+    paddingHorizontal: spacing.md + 2, paddingVertical: 9, backgroundColor: colors.bg,
   },
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
   chipText: { color: colors.text, fontSize: 13, fontWeight: "600" },
@@ -228,7 +246,7 @@ const styles = StyleSheet.create({
   hint: { color: colors.textFaint, fontSize: 13 },
   btn: {
     flex: 1, alignItems: "center", justifyContent: "center",
-    paddingVertical: spacing.md + 2, borderRadius: radius.md,
+    paddingVertical: spacing.md + 2, borderRadius: radius.pill,
   },
   btnPrimary: { backgroundColor: colors.brand },
   btnPrimaryText: { color: "#fff", fontWeight: "800" },

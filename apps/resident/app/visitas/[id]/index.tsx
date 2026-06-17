@@ -75,56 +75,69 @@ export default function VisitDetailScreen() {
 
   return (
     <View style={styles.root}>
-      <Header onBack={() => router.back()} insetTop={insets.top} title={`Folio ${visit.folio ?? "—"}`} />
-      <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl * 2 }}>
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <Text style={styles.subject} numberOfLines={2}>{visit.subject || who}</Text>
-            <View style={[styles.badge, { backgroundColor: st.color + "22" }]}>
-              <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
-            </View>
+      <Header onBack={() => router.back()} insetTop={insets.top} title="Detalle" />
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 }}>
+        {/* Hero con folio + status */}
+        <View style={styles.hero}>
+          <Text style={styles.heroLabel}>FOLIO</Text>
+          <Text style={styles.heroFolio}>{visit.folio ?? "—"}</Text>
+          <View style={[styles.badge, { backgroundColor: st.color + "22", borderColor: st.color + "55" }]}>
+            <View style={[styles.dot, { backgroundColor: st.color }]} />
+            <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
           </View>
-          <Field label="Tipo" value={visit.kind} />
-          <Field label="Persona" value={who} />
-          <Field label="Transporte" value={visit.transportName ?? "—"} />
-          <Field label="Placa" value={visit.plateNumber ?? "—"} />
-          <Field label="Domicilio" value={visit.houseAddress ?? "—"} />
-          <Field label="Llegada" value={formatDate(visit.arriveDate)} />
-          <Field label="Entrada" value={formatDate(visit.enterDate)} />
-          <Field label="Salida" value={formatDate(visit.leaveDate)} />
-          <Field label="Vencimiento" value={formatDate(visit.dueDate)} />
-          <Field label="Vigencia" value={visit.validity != null ? `${visit.validity} h` : "—"} />
-          <Field label="Privada" value={visit.private ? "Sí" : "No"} />
-          {visit.details ? <Field label="Detalles" value={visit.details} /> : null}
-          {visit.guardReport ? (
-            <View style={styles.flagRow}>
-              <Flag color={colors.red} size={14} />
-              <Text style={styles.flagText}>Marcada como reportada</Text>
-            </View>
-          ) : null}
+          <Text style={styles.heroSubject} numberOfLines={2}>{visit.subject || who}</Text>
         </View>
 
+        {/* Grid de campos */}
+        <View style={styles.fieldGrid}>
+          <FieldCard label="Tipo" value={visit.kind} />
+          <FieldCard label="Persona" value={who} />
+          <FieldCard label="Transporte" value={visit.transportName ?? "—"} />
+          <FieldCard label="Placa" value={visit.plateNumber ?? "—"} />
+          <FieldCard label="Domicilio" value={visit.houseAddress ?? "—"} wide />
+          <FieldCard label="Llegada" value={formatDate(visit.arriveDate)} />
+          <FieldCard label="Vigencia" value={visit.validity != null ? `${visit.validity} h` : "—"} />
+          <FieldCard label="Entrada" value={formatDate(visit.enterDate)} />
+          <FieldCard label="Salida" value={formatDate(visit.leaveDate)} />
+          <FieldCard label="Vencimiento" value={formatDate(visit.dueDate)} wide />
+          <FieldCard label="Privada" value={visit.private ? "Sí" : "No"} />
+        </View>
+
+        {visit.details ? (
+          <View style={styles.detailsCard}>
+            <Text style={styles.fieldLabel}>Detalles</Text>
+            <Text style={styles.detailsText}>{visit.details}</Text>
+          </View>
+        ) : null}
+
+        {visit.guardReport ? (
+          <View style={styles.flagRow}>
+            <Flag color={colors.red} size={14} />
+            <Text style={styles.flagText}>Marcada como reportada</Text>
+          </View>
+        ) : null}
+
         <Pressable
-          style={[styles.btn, styles.btnPrimary]}
+          style={({ pressed }) => [styles.btn, styles.btnPrimary, pressed && { transform: [{ scale: 0.98 }] }]}
           onPress={() => router.push(`/visitas/${visit.id}/qr`)}
         >
-          <QrCode color="#fff" size={18} />
+          <QrCode color="#fff" size={20} />
           <Text style={styles.btnPrimaryText}>Ver pase / QR</Text>
         </Pressable>
         <Pressable
-          style={[styles.btn, styles.btnGhost, (busy || isClosed) && { opacity: 0.5 }]}
+          style={[styles.btn, styles.btnGhost, (busy || isClosed) && { opacity: 0.4 }]}
           onPress={confirmCancel}
           disabled={busy || isClosed}
         >
-          <XCircle color={colors.red} size={18} />
+          <XCircle color={colors.red} size={20} />
           <Text style={[styles.btnGhostText, { color: colors.red }]}>Cancelar visita</Text>
         </Pressable>
         <Pressable
-          style={[styles.btn, styles.btnGhost, (busy || visit.guardReport) && { opacity: 0.5 }]}
+          style={[styles.btn, styles.btnGhost, (busy || visit.guardReport) && { opacity: 0.4 }]}
           onPress={doReport}
           disabled={busy || !!visit.guardReport}
         >
-          <Flag color={colors.amber} size={18} />
+          <Flag color={colors.amber} size={20} />
           <Text style={[styles.btnGhostText, { color: colors.amber }]}>Reportar visita</Text>
         </Pressable>
       </ScrollView>
@@ -136,18 +149,18 @@ function Header({ onBack, insetTop, title }: { onBack: () => void; insetTop: num
   return (
     <View style={[styles.header, { paddingTop: insetTop + spacing.sm }]}>
       <Pressable onPress={onBack} style={{ padding: 4 }}>
-        <ChevronLeft color="#fff" size={26} />
+        <ChevronLeft color={colors.text} size={26} />
       </Pressable>
       <Text style={styles.headerTitle}>{title}</Text>
     </View>
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function FieldCard({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
   return (
-    <View style={styles.field}>
+    <View style={[styles.fieldCard, wide ? { width: "100%" } : { width: "48.5%" }]}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <Text style={styles.fieldValue}>{value}</Text>
+      <Text style={styles.fieldValue} numberOfLines={2}>{value}</Text>
     </View>
   );
 }
@@ -155,30 +168,64 @@ function Field({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   header: {
-    backgroundColor: colors.ink, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
+    backgroundColor: colors.bg,
+    paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
     flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  headerTitle: { color: "#fff", fontSize: 22, fontWeight: "800" },
+  headerTitle: { color: colors.text, fontSize: 22, fontWeight: "800" },
   empty: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl },
-  card: {
-    backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg,
-    borderWidth: 1, borderColor: colors.border, gap: spacing.sm,
+  hero: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1, borderColor: colors.border,
+    padding: spacing.xl,
+    alignItems: "center",
+    shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
   },
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-  subject: { flex: 1, fontSize: 17, fontWeight: "800", color: colors.text, marginRight: spacing.sm },
-  badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  badgeText: { fontSize: 12, fontWeight: "700" },
-  field: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, gap: spacing.md },
-  fieldLabel: { color: colors.textMuted, fontSize: 13 },
-  fieldValue: { color: colors.text, fontSize: 13, fontWeight: "600", maxWidth: "60%", textAlign: "right" },
-  flagRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.sm },
+  heroLabel: { color: colors.textMuted, fontSize: 11, fontWeight: "700", letterSpacing: 2 },
+  heroFolio: { color: colors.brand, fontSize: 42, fontWeight: "900", letterSpacing: 2, marginTop: 4 },
+  badge: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1,
+    marginTop: spacing.md,
+  },
+  badgeText: { fontSize: 12, fontWeight: "700", letterSpacing: 0.4 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  heroSubject: { color: colors.text, fontSize: 16, fontWeight: "700", marginTop: spacing.md, textAlign: "center" },
+  fieldGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  fieldCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border,
+    padding: spacing.md + 2,
+  },
+  fieldLabel: { color: colors.textMuted, fontSize: 11, fontWeight: "700", letterSpacing: 0.7, textTransform: "uppercase" },
+  fieldValue: { color: colors.text, fontSize: 14, fontWeight: "600", marginTop: 4 },
+  detailsCard: {
+    backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
+    padding: spacing.lg,
+  },
+  detailsText: { color: colors.text, fontSize: 14, marginTop: 6, lineHeight: 20 },
+  flagRow: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: colors.red + "15",
+    borderColor: colors.red + "55", borderWidth: 1,
+    paddingVertical: 8, paddingHorizontal: 12,
+    borderRadius: radius.pill, alignSelf: "flex-start",
+  },
   flagText: { color: colors.red, fontSize: 12, fontWeight: "700" },
   btn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm,
-    paddingVertical: spacing.md + 2, borderRadius: radius.md,
+    paddingVertical: spacing.md + 4, borderRadius: radius.pill,
   },
-  btnPrimary: { backgroundColor: colors.brand },
-  btnPrimaryText: { color: "#fff", fontWeight: "800", fontSize: 15 },
-  btnGhost: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  btnPrimary: {
+    backgroundColor: colors.brand,
+    shadowColor: colors.brand, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  btnPrimaryText: { color: "#fff", fontWeight: "800", fontSize: 15, letterSpacing: 0.3 },
+  btnGhost: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   btnGhostText: { fontWeight: "700", fontSize: 15 },
 });

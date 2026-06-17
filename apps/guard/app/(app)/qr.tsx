@@ -9,7 +9,7 @@ import { useBooth } from "@/lib/booth";
 import {
   getVisitByFolio, giveAccess, leaveVisit, reportVisit, formatDate, type VisitItem,
 } from "@/lib/data";
-import { colors, radius, spacing, VISIT_STATUS, VISIT_KIND } from "@/lib/theme";
+import { colors, radius, spacing, useIsTablet, VISIT_STATUS, VISIT_KIND } from "@/lib/theme";
 
 // Pantalla 13 — QR Auto / Caminando. Como `expo-camera` puede dar problemas en
 // MuMu y aún no es objetivo de esta fase, usamos captura MANUAL del folio
@@ -20,6 +20,7 @@ export default function QrScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { booth } = useBooth();
+  const isTablet = useIsTablet();
 
   const isWalking = modo === "walking";
 
@@ -50,32 +51,41 @@ export default function QrScreen() {
 
   return (
     <View style={styles.root}>
+      {/* Header naranja con icono grande del modo */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={() => router.back()} style={styles.back}><ChevronLeft color="#fff" size={26} /></Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.brand}>{isWalking ? "QR Caminando" : "QR Auto"}</Text>
-          <Text style={styles.brandHint}>{isWalking ? "Acceso peatonal" : "Acceso vehicular"} · {booth?.name ?? "Sin caseta"}</Text>
+        <View style={[styles.headerInner, isTablet && styles.headerInnerTablet]}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <ChevronLeft color="#fff" size={24} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.brand}>{isWalking ? "QR Caminando" : "QR Auto"}</Text>
+            <Text style={styles.brandHint}>{isWalking ? "Acceso peatonal" : "Acceso vehicular"} · {booth?.name ?? "Sin caseta"}</Text>
+          </View>
+          <View style={styles.headerIcon}>
+            {isWalking ? <ScanLine color="#fff" size={26} /> : <QrCode color="#fff" size={26} />}
+          </View>
         </View>
-        {isWalking ? <ScanLine color="#fff" size={22} /> : <QrCode color="#fff" size={22} />}
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl * 2 }}>
+      <ScrollView contentContainerStyle={[
+        { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl * 2 },
+        isTablet && { padding: spacing.xl, maxWidth: 720, alignSelf: "center", width: "100%" },
+      ]}>
+        {/* Card gigante de captura */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Captura manual de folio</Text>
           <Text style={styles.cardHint}>Escaneo por cámara — próximamente. Por ahora ingresa el folio del pase.</Text>
-          <View style={styles.row}>
-            <TextInput style={styles.input} value={folio} onChangeText={setFolio}
-              placeholder="Folio del pase" placeholderTextColor={colors.textFaint}
-              keyboardType="default" autoCapitalize="characters" returnKeyType="search"
-              onSubmitEditing={search} />
-            <Pressable style={styles.searchBtn} onPress={search} disabled={searching}>
-              {searching ? <ActivityIndicator color="#fff" /> : <Text style={styles.searchBtnText}>Buscar</Text>}
-            </Pressable>
-          </View>
+          <TextInput style={styles.input} value={folio} onChangeText={setFolio}
+            placeholder="FOLIO" placeholderTextColor={colors.textFaint}
+            keyboardType="default" autoCapitalize="characters" returnKeyType="search"
+            onSubmitEditing={search} />
+          <Pressable style={styles.searchBtn} onPress={search} disabled={searching}>
+            {searching ? <ActivityIndicator color="#fff" /> : <Text style={styles.searchBtnText}>Buscar</Text>}
+          </Pressable>
         </View>
 
         {notFound && (
-          <View style={[styles.card, { borderColor: colors.red, borderWidth: 1 }]}>
+          <View style={[styles.card, styles.cardError]}>
             <Text style={[styles.cardTitle, { color: colors.red }]}>Folio no encontrado</Text>
             <Text style={styles.cardHint}>Verifica que el folio corresponda a una visita del tenant.</Text>
           </View>
@@ -88,7 +98,7 @@ export default function QrScreen() {
             <View style={styles.card}>
               <View style={styles.visitTop}>
                 <Text style={styles.subject} numberOfLines={1}>{visit.subject || visit.who}</Text>
-                <View style={[styles.badge, { backgroundColor: st.color + "22" }]}>
+                <View style={[styles.badge, { backgroundColor: st.color + "1a" }]}>
                   <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
                 </View>
               </View>
@@ -109,12 +119,12 @@ export default function QrScreen() {
                     <LogOut color="#fff" size={16} /><Text style={styles.actionText}>Registrar salida</Text>
                   </Pressable>
                 )}
-                <Pressable style={[styles.actionBtn, { borderWidth: 1, borderColor: colors.textMuted }]} disabled={acting}
+                <Pressable style={[styles.actionBtn, styles.actionGhost]} disabled={acting}
                   onPress={() => run(() => reportVisit(visit.id), "Visita reportada.")}>
                   <Flag color={colors.textMuted} size={16} />
                   <Text style={[styles.actionText, { color: colors.textMuted }]}>Reportar</Text>
                 </Pressable>
-                <Pressable style={[styles.actionBtn, { backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border }]}
+                <Pressable style={[styles.actionBtn, styles.actionGhost]}
                   onPress={() => router.push(`/(app)/visitas/${visit.id}`)}>
                   <Text style={[styles.actionText, { color: colors.text }]}>Ver detalle</Text>
                 </Pressable>
@@ -129,37 +139,56 @@ export default function QrScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    backgroundColor: colors.ink, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
-    flexDirection: "row", alignItems: "center", gap: spacing.sm,
+  header: { backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
+  headerInner: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  headerInnerTablet: { maxWidth: 1200, width: "100%", alignSelf: "center" },
+  backBtn: {
+    width: 38, height: 38, borderRadius: radius.pill,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.headerOverlay,
   },
-  back: { padding: 4 },
-  brand: { color: "#fff", fontSize: 20, fontWeight: "800" },
-  brandHint: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
-  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
-  cardTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
-  cardHint: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
-  row: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+  brand: { color: "#fff", fontSize: 22, fontWeight: "800" },
+  brandHint: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 2, fontWeight: "600" },
+  headerIcon: {
+    width: 44, height: 44, borderRadius: radius.pill,
+    backgroundColor: colors.headerOverlayStrong, borderWidth: 1, borderColor: "#fff",
+    alignItems: "center", justifyContent: "center",
+  },
+
+  card: {
+    backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.xl,
+    borderWidth: 1, borderColor: colors.border, gap: spacing.md,
+    shadowColor: "#0f172a", shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  cardError: { borderColor: colors.red, borderWidth: 1.5 },
+  cardTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+  cardHint: { fontSize: 13, color: colors.textMuted },
   input: {
-    flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md, fontSize: 15,
-    color: colors.text, backgroundColor: colors.bg,
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.lg, fontSize: 28,
+    color: colors.text, backgroundColor: colors.bg, fontWeight: "800",
+    textAlign: "center", letterSpacing: 4, marginTop: spacing.sm,
   },
   searchBtn: {
-    backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-    borderRadius: radius.md, alignItems: "center", justifyContent: "center", minWidth: 90,
+    backgroundColor: colors.brand,
+    paddingVertical: spacing.md + 2,
+    borderRadius: radius.pill, alignItems: "center", justifyContent: "center",
+    shadowColor: colors.brand, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
-  searchBtnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  searchBtnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
   visitTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
-  subject: { flex: 1, fontSize: 16, fontWeight: "700", color: colors.text },
-  badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  subject: { flex: 1, fontSize: 16, fontWeight: "800", color: colors.text },
+  badge: { borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
   badgeText: { fontSize: 12, fontWeight: "700" },
-  meta: { color: colors.textMuted, fontSize: 13, marginTop: 8 },
+  meta: { color: colors.textMuted, fontSize: 13, marginTop: 4, fontWeight: "500" },
   metaFaint: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
   actionBtn: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
+    borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 9,
   },
-  actionText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  actionGhost: { backgroundColor: "#fff", borderWidth: 1, borderColor: colors.border },
+  actionText: { color: "#fff", fontSize: 13, fontWeight: "800" },
 });

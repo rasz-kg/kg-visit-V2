@@ -49,7 +49,7 @@ export default function StaffScreen() {
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
-          <ChevronLeft color="#fff" size={26} />
+          <ChevronLeft color={colors.text} size={26} />
         </Pressable>
         <View>
           <Text style={styles.title}>Staff</Text>
@@ -63,10 +63,19 @@ export default function StaffScreen() {
         <FlatList
           data={items}
           keyExtractor={(i) => i.id}
-          contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}
-          ListEmptyComponent={<Text style={styles.empty}>Aún no tienes empleados registrados.</Text>}
+          contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 120 }}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyIcon}><Briefcase color={colors.amber} size={28} /></View>
+              <Text style={styles.empty}>Aún no tienes empleados registrados.</Text>
+              <Text style={styles.emptyHint}>Toca el botón naranja para agregar uno nuevo.</Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <View style={styles.card}>
+              <View style={[styles.avatar, { backgroundColor: colors.amber + "22" }]}>
+                <Briefcase color={colors.amber} size={22} />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{item.name}</Text>
                 {item.days ? <Text style={styles.meta}>Días: {item.days}</Text> : null}
@@ -75,10 +84,10 @@ export default function StaffScreen() {
                 ) : null}
                 {item.folio ? <Text style={styles.metaFaint}>Folio: {item.folio}</Text> : null}
               </View>
-              <Pressable onPress={() => openEdit(item)} style={styles.iconBtn}>
+              <Pressable onPress={() => openEdit(item)} style={styles.iconBtn} hitSlop={6}>
                 <Pencil color={colors.brand} size={18} />
               </Pressable>
-              <Pressable onPress={() => confirmRemove(item)} style={styles.iconBtn}>
+              <Pressable onPress={() => confirmRemove(item)} style={styles.iconBtn} hitSlop={6}>
                 <Trash2 color={colors.red} size={18} />
               </Pressable>
             </View>
@@ -86,8 +95,8 @@ export default function StaffScreen() {
         />
       )}
 
-      <Pressable style={styles.fab} onPress={openNew}>
-        <Plus color="#fff" size={28} />
+      <Pressable style={({ pressed }) => [styles.fab, pressed && { transform: [{ scale: 0.96 }] }]} onPress={openNew}>
+        <Plus color="#fff" size={30} strokeWidth={2.5} />
       </Pressable>
 
       <EmployeeFormModal
@@ -142,6 +151,7 @@ function EmployeeFormModal({
     <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalRoot}>
         <View style={styles.modalCard}>
+          <View style={styles.modalHandle} />
           <View style={styles.modalHead}>
             <Briefcase color={colors.brand} size={22} />
             <Text style={styles.modalTitle}>{editing ? "Editar empleado" : "Nuevo empleado"}</Text>
@@ -194,43 +204,60 @@ function Field({ label, value, onChange, placeholder }: {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   header: {
-    backgroundColor: colors.ink, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
+    backgroundColor: colors.bg, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
     flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  title: { color: "#fff", fontSize: 22, fontWeight: "800" },
-  subtitle: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
-  empty: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl, paddingHorizontal: spacing.xl },
+  title: { color: colors.text, fontSize: 22, fontWeight: "800" },
+  subtitle: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  emptyWrap: { alignItems: "center", paddingTop: spacing.xl * 2, gap: spacing.sm },
+  emptyIcon: {
+    width: 64, height: 64, borderRadius: 32, backgroundColor: colors.amber + "22",
+    alignItems: "center", justifyContent: "center", marginBottom: spacing.sm,
+  },
+  empty: { textAlign: "center", color: colors.text, fontSize: 16, fontWeight: "700" },
+  emptyHint: { textAlign: "center", color: colors.textMuted, fontSize: 13, paddingHorizontal: spacing.xl },
   card: {
-    flexDirection: "row", alignItems: "center", gap: spacing.sm,
-    backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg,
+    flexDirection: "row", alignItems: "center", gap: spacing.md,
+    backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg,
     borderWidth: 1, borderColor: colors.border,
+    shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
+  },
+  avatar: {
+    width: 48, height: 48, borderRadius: 24,
+    alignItems: "center", justifyContent: "center",
   },
   name: { fontSize: 15, fontWeight: "700", color: colors.text },
   meta: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
   metaFaint: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
   iconBtn: { padding: spacing.sm },
   fab: {
-    position: "absolute", right: spacing.lg, bottom: spacing.lg,
-    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand,
-    alignItems: "center", justifyContent: "center", elevation: 4,
-    shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    position: "absolute", right: spacing.xl, bottom: spacing.xl,
+    width: 64, height: 64, borderRadius: 32, backgroundColor: colors.brand,
+    alignItems: "center", justifyContent: "center", elevation: 8,
+    shadowColor: colors.brand, shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 6 },
   },
-  modalRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  modalRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
   modalCard: {
-    backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
-    padding: spacing.lg, maxHeight: "85%",
+    backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+    padding: spacing.lg, maxHeight: "88%",
+    borderTopWidth: 1, borderColor: colors.border,
+  },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong,
+    alignSelf: "center", marginBottom: spacing.md,
   },
   modalHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   modalTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
-  label: { fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: 6 },
+  label: { fontSize: 12, fontWeight: "700", color: colors.textMuted, marginBottom: 6, letterSpacing: 0.5, textTransform: "uppercase" },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md, fontSize: 15,
+    paddingHorizontal: spacing.md + 2, paddingVertical: spacing.md, fontSize: 15,
     color: colors.text, backgroundColor: colors.bg,
   },
   btn: {
     flex: 1, alignItems: "center", justifyContent: "center",
-    paddingVertical: spacing.md + 2, borderRadius: radius.md,
+    paddingVertical: spacing.md + 2, borderRadius: radius.pill,
   },
   btnPrimary: { backgroundColor: colors.brand },
   btnPrimaryText: { color: "#fff", fontWeight: "800" },

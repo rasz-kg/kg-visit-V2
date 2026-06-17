@@ -12,8 +12,8 @@ import {
 } from "@/lib/data";
 import { colors, radius, spacing, useIsTablet, VISIT_KIND, VISIT_STATUS } from "@/lib/theme";
 
-// Pantalla 5 — Detalle de visita. Muestra todos los campos relevantes (folio,
-// estatus, casa, placa, tiempos, flags) y permite las acciones del guardia.
+// Pantalla 5 — Detalle de visita. Hero naranja con folio y status, secciones
+// de campos en cards (title gris arriba + valor abajo), acciones en pills.
 export default function VisitaDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -72,8 +72,8 @@ export default function VisitaDetailScreen() {
     return (
       <View style={styles.root}>
         <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-          <Pressable hitSlop={8} onPress={() => router.back()} style={styles.back}>
-            <ChevronLeft color="#fff" size={26} />
+          <Pressable hitSlop={8} onPress={() => router.back()} style={styles.backBtn}>
+            <ChevronLeft color="#fff" size={24} />
           </Pressable>
           <Text style={styles.title}>Visita no encontrada</Text>
         </View>
@@ -87,20 +87,31 @@ export default function VisitaDetailScreen() {
 
   return (
     <View style={styles.root}>
+      {/* Hero naranja */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable hitSlop={8} onPress={() => router.back()} style={styles.back}>
-          <ChevronLeft color="#fff" size={26} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title}>{visit.subject || visit.who}</Text>
-          <Text style={styles.subtitle}>Folio {visit.folio ?? "—"} · {kindLabel}</Text>
-        </View>
-        <View style={[styles.badge, { backgroundColor: st.color + "22" }]}>
-          <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
+        <View style={[styles.headerInner, isTablet && styles.headerInnerTablet]}>
+          <View style={styles.headerTop}>
+            <Pressable hitSlop={8} onPress={() => router.back()} style={styles.backBtn}>
+              <ChevronLeft color="#fff" size={24} />
+            </Pressable>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.kicker}>Folio · {visit.folio ?? "—"}</Text>
+              <Text style={styles.title} numberOfLines={1}>{visit.subject || visit.who}</Text>
+              <Text style={styles.subtitle}>{kindLabel}</Text>
+            </View>
+            <View style={styles.statusPill}>
+              <Text style={styles.statusPillText}>{st.label}</Text>
+            </View>
+          </View>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl * 2 }}>
+      <ScrollView
+        contentContainerStyle={[
+          { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl * 2 },
+          isTablet && { padding: spacing.xl, maxWidth: 1200, alignSelf: "center", width: "100%" },
+        ]}
+      >
         {/* Datos del visitante / origen */}
         <Card title="Quién">
           <Row label="Nombre" value={visit.who} />
@@ -183,7 +194,7 @@ export default function VisitaDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Modal de incidente — Pressable overlay sin libs externas */}
+      {/* Modal de incidente — centrado, botones outline (Cancelar) y brand (Crear) */}
       <Modal visible={incidentOpen} transparent animationType="fade" onRequestClose={() => setIncidentOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setIncidentOpen(false)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
@@ -199,12 +210,18 @@ export default function VisitaDetailScreen() {
               numberOfLines={4}
             />
             <View style={styles.modalActions}>
-              <Pressable style={[styles.modalBtn, { backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border }]}
-                onPress={() => setIncidentOpen(false)}>
+              <Pressable
+                style={styles.modalBtnGhost}
+                onPress={() => setIncidentOpen(false)}
+              >
                 <Text style={{ color: colors.text, fontWeight: "700" }}>Cancelar</Text>
               </Pressable>
-              <Pressable style={[styles.modalBtn, { backgroundColor: colors.brand }]} onPress={submitIncident} disabled={busy}>
-                {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700" }}>Crear</Text>}
+              <Pressable
+                style={styles.modalBtnPrimary}
+                onPress={submitIncident}
+                disabled={busy}
+              >
+                {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800" }}>Crear</Text>}
               </Pressable>
             </View>
           </Pressable>
@@ -253,7 +270,11 @@ function ActionBtn({
   const outline = tone === "muted";
   return (
     <Pressable
-      style={[styles.action, outline ? { borderColor: color, borderWidth: 1 } : { backgroundColor: color }]}
+      style={({ pressed }) => [
+        styles.action,
+        outline ? { borderColor: color, borderWidth: 1, backgroundColor: "#fff" } : { backgroundColor: color },
+        pressed && { opacity: 0.85 },
+      ]}
       onPress={onPress}
       disabled={busy}
     >
@@ -266,43 +287,73 @@ function ActionBtn({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   header: {
-    backgroundColor: colors.ink, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
   },
-  back: { padding: 4 },
-  title: { color: "#fff", fontSize: 18, fontWeight: "800" },
-  subtitle: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
-  badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  badgeText: { fontSize: 12, fontWeight: "700" },
+  headerInner: { gap: spacing.md },
+  headerInnerTablet: { maxWidth: 1200, width: "100%", alignSelf: "center" },
+  headerTop: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  backBtn: {
+    width: 38, height: 38, borderRadius: radius.pill,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.headerOverlay,
+  },
+  kicker: { color: "rgba(255,255,255,0.85)", fontSize: 11, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase" },
+  title: { color: "#fff", fontSize: 20, fontWeight: "800", marginTop: 2 },
+  subtitle: { color: "rgba(255,255,255,0.85)", fontSize: 13, marginTop: 2, fontWeight: "500" },
+  statusPill: {
+    backgroundColor: colors.headerOverlayStrong,
+    borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6,
+    borderWidth: 1, borderColor: "#fff",
+  },
+  statusPillText: { color: "#fff", fontSize: 12, fontWeight: "800" },
+
   empty: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl, paddingHorizontal: spacing.xl },
+
   card: {
     backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg,
     borderWidth: 1, borderColor: colors.border,
+    shadowColor: "#0f172a", shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   gridRow: { flexDirection: "row", gap: spacing.md },
-  cardTitle: { fontSize: 13, fontWeight: "700", color: colors.textMuted, textTransform: "uppercase", letterSpacing: 0.5 },
-  row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.md },
-  rowLabel: { color: colors.textMuted, fontSize: 13 },
-  rowValue: { color: colors.text, fontSize: 14, fontWeight: "600", maxWidth: "65%", textAlign: "right" },
+  cardTitle: { fontSize: 12, fontWeight: "800", color: colors.textFaint, textTransform: "uppercase", letterSpacing: 0.6 },
+  row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.sm + 2, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.md },
+  rowLabel: { color: colors.textMuted, fontSize: 13, fontWeight: "500" },
+  rowValue: { color: colors.text, fontSize: 14, fontWeight: "700", maxWidth: "65%", textAlign: "right" },
   faint: { color: colors.textFaint, fontSize: 13 },
   flagsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginTop: spacing.sm },
-  flagChip: { backgroundColor: colors.brandSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
-  flagChipText: { fontSize: 11, color: colors.brandDark, fontWeight: "700" },
+  flagChip: { backgroundColor: colors.brandSoft, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
+  flagChipText: { fontSize: 11, color: colors.brandDark, fontWeight: "800" },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   action: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md - 2,
+    borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 10,
   },
-  actionText: { fontSize: 14, fontWeight: "700" },
-  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: spacing.xl },
-  modalCard: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm },
-  modalTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+  actionText: { fontSize: 14, fontWeight: "800" },
+
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(15,23,42,0.55)", justifyContent: "center", padding: spacing.xl },
+  modalCard: {
+    backgroundColor: colors.card, borderRadius: radius.xl, padding: spacing.xl, gap: spacing.sm,
+    maxWidth: 520, alignSelf: "center", width: "100%",
+    shadowColor: "#0f172a", shadowOpacity: 0.25, shadowRadius: 24, shadowOffset: { width: 0, height: 12 },
+    elevation: 12,
+  },
+  modalTitle: { fontSize: 20, fontWeight: "800", color: colors.text },
   modalHint: { color: colors.textMuted, fontSize: 13 },
   modalInput: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
     paddingHorizontal: spacing.md, paddingVertical: spacing.md, fontSize: 14, color: colors.text,
-    backgroundColor: colors.bg, minHeight: 100, textAlignVertical: "top", marginTop: spacing.sm,
+    backgroundColor: colors.bg, minHeight: 110, textAlignVertical: "top", marginTop: spacing.sm,
   },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: spacing.sm, marginTop: spacing.md },
-  modalBtn: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: radius.md },
+  modalBtnGhost: {
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff",
+  },
+  modalBtnPrimary: {
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brand,
+  },
 });

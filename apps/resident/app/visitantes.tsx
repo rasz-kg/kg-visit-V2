@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ChevronLeft, Plus, Trash2, UserPlus } from "lucide-react-native";
+import { ChevronLeft, Plus, Trash2, UserPlus, Users } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import {
   getFrequentVisitors, createFrequentVisitor, removeFrequentVisitor, type FrequentVisitor,
@@ -45,7 +45,7 @@ export default function VisitantesScreen() {
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
-          <ChevronLeft color="#fff" size={26} />
+          <ChevronLeft color={colors.text} size={26} />
         </Pressable>
         <View>
           <Text style={styles.title}>Visitantes</Text>
@@ -59,10 +59,19 @@ export default function VisitantesScreen() {
         <FlatList
           data={items}
           keyExtractor={(i) => i.id}
-          contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}
-          ListEmptyComponent={<Text style={styles.empty}>Aún no tienes visitantes registrados.</Text>}
+          contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 120 }}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyIcon}><Users color={colors.blue} size={28} /></View>
+              <Text style={styles.empty}>Aún no tienes visitantes registrados.</Text>
+              <Text style={styles.emptyHint}>Toca el botón naranja para agregar uno nuevo.</Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <View style={styles.card}>
+              <View style={[styles.avatar, { backgroundColor: colors.blue + "22" }]}>
+                <Text style={[styles.avatarText, { color: colors.blue }]}>{(item.name ?? "?").charAt(0).toUpperCase()}</Text>
+              </View>
               <View style={{ flex: 1 }}>
                 <View style={styles.row}>
                   <Text style={styles.name}>{item.name}</Text>
@@ -75,7 +84,7 @@ export default function VisitantesScreen() {
                 {item.phone ? <Text style={styles.meta}>Tel: {item.phone}</Text> : null}
                 {item.curp ? <Text style={styles.metaFaint}>CURP: {item.curp}</Text> : null}
               </View>
-              <Pressable onPress={() => confirmRemove(item)} style={styles.delete}>
+              <Pressable onPress={() => confirmRemove(item)} style={styles.delete} hitSlop={8}>
                 <Trash2 color={colors.red} size={18} />
               </Pressable>
             </View>
@@ -83,8 +92,8 @@ export default function VisitantesScreen() {
         />
       )}
 
-      <Pressable style={styles.fab} onPress={() => setModalOpen(true)}>
-        <Plus color="#fff" size={28} />
+      <Pressable style={({ pressed }) => [styles.fab, pressed && { transform: [{ scale: 0.96 }] }]} onPress={() => setModalOpen(true)}>
+        <Plus color="#fff" size={30} strokeWidth={2.5} />
       </Pressable>
 
       <NewVisitorModal
@@ -125,6 +134,7 @@ function NewVisitorModal({
     <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalRoot}>
         <View style={styles.modalCard}>
+          <View style={styles.modalHandle} />
           <View style={styles.modalHead}>
             <UserPlus color={colors.brand} size={22} />
             <Text style={styles.modalTitle}>Nuevo visitante</Text>
@@ -171,6 +181,7 @@ function NewVisitorModal({
                 value={frequently}
                 onValueChange={setFrequently}
                 trackColor={{ true: colors.brand, false: colors.border }}
+                thumbColor="#fff"
               />
             </View>
           </ScrollView>
@@ -191,48 +202,66 @@ function NewVisitorModal({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   header: {
-    backgroundColor: colors.ink, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
+    backgroundColor: colors.bg, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
     flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  title: { color: "#fff", fontSize: 22, fontWeight: "800" },
-  subtitle: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
-  empty: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl, paddingHorizontal: spacing.xl },
+  title: { color: colors.text, fontSize: 22, fontWeight: "800" },
+  subtitle: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  emptyWrap: { alignItems: "center", paddingTop: spacing.xl * 2, gap: spacing.sm },
+  emptyIcon: {
+    width: 64, height: 64, borderRadius: 32, backgroundColor: colors.blue + "22",
+    alignItems: "center", justifyContent: "center", marginBottom: spacing.sm,
+  },
+  empty: { textAlign: "center", color: colors.text, fontSize: 16, fontWeight: "700" },
+  emptyHint: { textAlign: "center", color: colors.textMuted, fontSize: 13, paddingHorizontal: spacing.xl },
   card: {
     flexDirection: "row", alignItems: "center", gap: spacing.md,
-    backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg,
+    backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg,
     borderWidth: 1, borderColor: colors.border,
+    shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
+  avatar: {
+    width: 48, height: 48, borderRadius: 24,
+    alignItems: "center", justifyContent: "center",
+  },
+  avatarText: { fontSize: 18, fontWeight: "800" },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flexWrap: "wrap" },
   name: { fontSize: 15, fontWeight: "700", color: colors.text },
-  freqBadge: { backgroundColor: colors.brandSoft, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
-  freqText: { color: colors.brandDark, fontSize: 11, fontWeight: "700" },
+  freqBadge: { backgroundColor: colors.brandSoft, paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill },
+  freqText: { color: colors.brand, fontSize: 10, fontWeight: "700", letterSpacing: 0.4 },
   meta: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
   metaFaint: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
   delete: { padding: spacing.sm },
   fab: {
-    position: "absolute", right: spacing.lg, bottom: spacing.lg,
-    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand,
-    alignItems: "center", justifyContent: "center", elevation: 4,
-    shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    position: "absolute", right: spacing.xl, bottom: spacing.xl,
+    width: 64, height: 64, borderRadius: 32, backgroundColor: colors.brand,
+    alignItems: "center", justifyContent: "center", elevation: 8,
+    shadowColor: colors.brand, shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 6 },
   },
-  modalRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  modalRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
   modalCard: {
-    backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
-    padding: spacing.lg, maxHeight: "85%",
+    backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+    padding: spacing.lg, maxHeight: "88%",
+    borderTopWidth: 1, borderColor: colors.border,
+  },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong,
+    alignSelf: "center", marginBottom: spacing.md,
   },
   modalHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   modalTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
-  label: { fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: 6 },
+  label: { fontSize: 12, fontWeight: "700", color: colors.textMuted, marginBottom: 6, letterSpacing: 0.5, textTransform: "uppercase" },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md, fontSize: 15,
+    paddingHorizontal: spacing.md + 2, paddingVertical: spacing.md, fontSize: 15,
     color: colors.text, backgroundColor: colors.bg,
   },
-  hint: { color: colors.textFaint, fontSize: 12 },
+  hint: { color: colors.textFaint, fontSize: 12, textTransform: "none", letterSpacing: 0, fontWeight: "400" },
   switchRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   btn: {
     flex: 1, alignItems: "center", justifyContent: "center",
-    paddingVertical: spacing.md + 2, borderRadius: radius.md,
+    paddingVertical: spacing.md + 2, borderRadius: radius.pill,
   },
   btnPrimary: { backgroundColor: colors.brand },
   btnPrimaryText: { color: "#fff", fontWeight: "800" },

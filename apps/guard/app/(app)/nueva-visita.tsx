@@ -4,7 +4,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ChevronLeft, ChevronRight, Camera } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, Camera, Check } from "lucide-react-native";
 import { useBooth } from "@/lib/booth";
 import {
   getHouses, getServices, getTransports, getEmployeesByHouse, createGuardVisit,
@@ -22,6 +22,8 @@ const KIND_OPTIONS: { key: VisitKindUI; label: string; hint: string }[] = [
   { key: "employee", label: "Empleado doméstico", hint: "Personal asignado a un domicilio" },
   { key: "resident", label: "Colono", hint: "Ingreso de un residente" },
 ];
+
+const STEP_LABELS = ["Tipo", "Domicilio", "Datos", "Transporte", "Foto", "Confirmar"] as const;
 
 export default function NuevaVisitaScreen() {
   const router = useRouter();
@@ -131,22 +133,61 @@ export default function NuevaVisitaScreen() {
 
   return (
     <View style={styles.root}>
+      {/* Header naranja */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={() => router.back()} style={styles.back}><ChevronLeft color="#fff" size={26} /></Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.brand}>Nueva visita</Text>
-          <Text style={styles.brandHint}>Paso {step} de 6 · {booth?.name ?? "Sin caseta"}</Text>
+        <View style={[styles.headerInner, isTablet && styles.headerInnerTablet]}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <ChevronLeft color="#fff" size={24} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.brand}>Nueva visita</Text>
+            <Text style={styles.brandHint}>Paso {step} de 6 · {booth?.name ?? "Sin caseta"}</Text>
+          </View>
         </View>
       </View>
 
-      {/* Barra de progreso simple */}
-      <View style={styles.progressRow}>
-        {[1, 2, 3, 4, 5, 6].map((n) => (
-          <View key={n} style={[styles.progressDot, n <= step ? styles.progressDotOn : null]} />
-        ))}
+      {/* Stepper visual de círculos numerados con conexión */}
+      <View style={styles.stepperWrap}>
+        <View style={[styles.stepper, isTablet && styles.stepperTablet]}>
+          {STEP_LABELS.map((label, idx) => {
+            const n = idx + 1;
+            const done = n < step;
+            const active = n === step;
+            return (
+              <React.Fragment key={label}>
+                <View style={styles.stepItem}>
+                  <View
+                    style={[
+                      styles.stepCircle,
+                      done && styles.stepCircleDone,
+                      active && styles.stepCircleActive,
+                    ]}
+                  >
+                    {done ? (
+                      <Check color="#fff" size={14} />
+                    ) : (
+                      <Text style={[styles.stepCircleText, active && { color: "#fff" }]}>{n}</Text>
+                    )}
+                  </View>
+                  {isTablet && (
+                    <Text style={[styles.stepLabel, (active || done) && { color: colors.text, fontWeight: "700" }]}>
+                      {label}
+                    </Text>
+                  )}
+                </View>
+                {n < STEP_LABELS.length && (
+                  <View style={[styles.stepLine, n < step && { backgroundColor: colors.brand }]} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl * 2 }}>
+      <ScrollView contentContainerStyle={[
+        { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl * 3 },
+        isTablet && { padding: spacing.xl, maxWidth: 960, alignSelf: "center", width: "100%" },
+      ]}>
         {step === 1 && (
           <Step n="01" title="Tipo de visita" hint="¿Quién va a ingresar?">
             <View style={isTablet ? styles.gridRow2 : styles.row}>
@@ -162,7 +203,7 @@ export default function NuevaVisitaScreen() {
           <Step n="02" title="Domicilio destino" hint="A qué casa va la visita">
             <TextInput style={styles.input} value={houseSearch} onChangeText={setHouseSearch}
               placeholder="Buscar por dirección…" placeholderTextColor={colors.textFaint} />
-            <ScrollView style={{ maxHeight: 360, marginTop: spacing.sm }}>
+            <ScrollView style={{ maxHeight: 380, marginTop: spacing.sm }}>
               <View style={isTablet ? styles.gridRow2 : { gap: spacing.sm }}>
                 {houses.map((h) => (
                   <Pressable key={h.id}
@@ -263,11 +304,13 @@ export default function NuevaVisitaScreen() {
         {step === 5 && (
           <Step n="05" title="Foto del visitante" hint="Captura opcional (próximamente)">
             <View style={styles.photoStub}>
-              <Camera color={colors.textMuted} size={48} />
+              <View style={styles.photoIcon}>
+                <Camera color={colors.brand} size={48} />
+              </View>
               <Text style={styles.photoStubText}>Captura desde cámara — próximamente.</Text>
-              <Pressable style={[styles.qrBtn, { marginTop: spacing.md }]}
+              <Pressable style={styles.simBtn}
                 onPress={() => Alert.alert("Cámara", "La captura desde cámara se habilita en próxima versión.")}>
-                <Text style={styles.qrBtnText}>Simular captura</Text>
+                <Text style={styles.simBtnText}>Simular captura</Text>
               </Pressable>
             </View>
           </Step>
@@ -294,9 +337,9 @@ export default function NuevaVisitaScreen() {
                   <Text style={styles.primaryBtnText}>Crear y dar acceso</Text>
                 )}
               </Pressable>
-              <Pressable style={[styles.primaryBtn, { backgroundColor: colors.ink800 }]}
+              <Pressable style={[styles.primaryBtn, styles.primaryBtnGhost]}
                 onPress={() => finish(false)} disabled={busy}>
-                <Text style={styles.primaryBtnText}>Solo autorizar</Text>
+                <Text style={[styles.primaryBtnText, { color: colors.brand }]}>Solo autorizar</Text>
               </Pressable>
             </View>
           </Step>
@@ -306,20 +349,22 @@ export default function NuevaVisitaScreen() {
       {/* Footer con anterior/siguiente */}
       {step < 6 && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>
-          <Pressable
-            style={[styles.footerBtn, { backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border }]}
-            onPress={() => (step > 1 ? setStep(step - 1) : router.back())}
-          >
-            <Text style={{ color: colors.text, fontWeight: "700" }}>{step > 1 ? "Anterior" : "Cancelar"}</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.footerBtn, { backgroundColor: colors.brand, opacity: canAdvance() ? 1 : 0.4 }]}
-            onPress={() => canAdvance() && setStep(step + 1)}
-            disabled={!canAdvance()}
-          >
-            <Text style={{ color: "#fff", fontWeight: "800" }}>Siguiente</Text>
-            <ChevronRight color="#fff" size={18} />
-          </Pressable>
+          <View style={[styles.footerInner, isTablet && { maxWidth: 960, alignSelf: "center", width: "100%" }]}>
+            <Pressable
+              style={styles.footerGhost}
+              onPress={() => (step > 1 ? setStep(step - 1) : router.back())}
+            >
+              <Text style={{ color: colors.text, fontWeight: "700" }}>{step > 1 ? "Anterior" : "Cancelar"}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.footerPrimary, { opacity: canAdvance() ? 1 : 0.4 }]}
+              onPress={() => canAdvance() && setStep(step + 1)}
+              disabled={!canAdvance()}
+            >
+              <Text style={{ color: "#fff", fontWeight: "800" }}>Siguiente</Text>
+              <ChevronRight color="#fff" size={18} />
+            </Pressable>
+          </View>
         </View>
       )}
     </View>
@@ -371,58 +416,106 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  header: { backgroundColor: colors.ink, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  back: { padding: 4 },
+  header: { backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
+  headerInner: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  headerInnerTablet: { maxWidth: 1200, width: "100%", alignSelf: "center" },
+  backBtn: {
+    width: 38, height: 38, borderRadius: radius.pill,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.headerOverlay,
+  },
   brand: { color: "#fff", fontSize: 22, fontWeight: "800" },
-  brandHint: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
-  progressRow: { flexDirection: "row", gap: 4, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.ink },
-  progressDot: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.ink800 },
-  progressDotOn: { backgroundColor: colors.brand },
-  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
+  brandHint: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 2, fontWeight: "600" },
+
+  // Stepper de círculos numerados con conexión
+  stepperWrap: { backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: spacing.md },
+  stepper: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, gap: 4 },
+  stepperTablet: { maxWidth: 960, alignSelf: "center", width: "100%", paddingHorizontal: spacing.xl },
+  stepItem: { alignItems: "center", gap: 4 },
+  stepCircle: {
+    width: 28, height: 28, borderRadius: radius.pill,
+    borderWidth: 1.5, borderColor: colors.border,
+    backgroundColor: "#fff",
+    alignItems: "center", justifyContent: "center",
+  },
+  stepCircleActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  stepCircleDone: { backgroundColor: colors.brand, borderColor: colors.brand },
+  stepCircleText: { fontSize: 12, fontWeight: "800", color: colors.textMuted },
+  stepLabel: { fontSize: 11, color: colors.textFaint, fontWeight: "600" },
+  stepLine: { flex: 1, height: 2, backgroundColor: colors.border, borderRadius: 1 },
+
+  card: {
+    backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg,
+    borderWidth: 1, borderColor: colors.border,
+    shadowColor: "#0f172a", shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
   stepHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  stepNum: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
-  stepNumText: { color: colors.brandDark, fontWeight: "800" },
-  stepTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
-  stepHint: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  stepNum: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
+  stepNumText: { color: colors.brandDark, fontWeight: "800", fontSize: 14 },
+  stepTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+  stepHint: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   row: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   gridRow2: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   fieldLabel: { fontSize: 13, fontWeight: "700", color: colors.textMuted, marginBottom: 6 },
-  chip: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 8, backgroundColor: colors.bg },
+  chip: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 9, backgroundColor: "#fff" },
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  chipText: { color: colors.text, fontSize: 13, fontWeight: "600" },
+  chipText: { color: colors.text, fontSize: 13, fontWeight: "700" },
   chipTextActive: { color: "#fff" },
-  input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md, fontSize: 15, color: colors.text, backgroundColor: colors.bg },
+  input: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.md + 2,
+    fontSize: 15, color: colors.text, backgroundColor: colors.bg,
+  },
   faint: { color: colors.textFaint, fontSize: 13, paddingVertical: spacing.sm },
   kindCard: {
-    flexBasis: "48%", flexGrow: 1, padding: spacing.md, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg,
+    flexBasis: "48%", flexGrow: 1, padding: spacing.lg, borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff",
   },
   kindCardOn: { backgroundColor: colors.brand, borderColor: colors.brand },
-  kindLabel: { fontSize: 14, fontWeight: "700", color: colors.text },
-  kindHint: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  kindLabel: { fontSize: 15, fontWeight: "800", color: colors.text },
+  kindHint: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
   houseCard: {
     padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.bg, marginBottom: spacing.sm,
+    backgroundColor: "#fff", marginBottom: spacing.sm,
   },
   houseCardOn: { backgroundColor: colors.brand, borderColor: colors.brand },
-  houseAddr: { fontSize: 14, fontWeight: "700", color: colors.text },
+  houseAddr: { fontSize: 14, fontWeight: "800", color: colors.text },
   houseMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   photoStub: { alignItems: "center", paddingVertical: spacing.xl },
-  photoStubText: { color: colors.textMuted, fontSize: 13, marginTop: spacing.md, textAlign: "center" },
-  qrBtn: { backgroundColor: colors.ink800, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
-  qrBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
-  summaryRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.md },
+  photoIcon: {
+    width: 96, height: 96, borderRadius: radius.pill,
+    backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center",
+  },
+  photoStubText: { color: colors.textMuted, fontSize: 14, marginTop: spacing.md, textAlign: "center" },
+  simBtn: {
+    backgroundColor: colors.brand, borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2, marginTop: spacing.md,
+  },
+  simBtnText: { color: "#fff", fontSize: 13, fontWeight: "800" },
+  summaryRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.sm + 2, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.md },
   summaryLabel: { color: colors.textMuted, fontSize: 13 },
-  summaryValue: { color: colors.text, fontSize: 14, fontWeight: "600", maxWidth: "60%", textAlign: "right" },
+  summaryValue: { color: colors.text, fontSize: 14, fontWeight: "700", maxWidth: "60%", textAlign: "right" },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  primaryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, flexGrow: 1, paddingHorizontal: spacing.lg, paddingVertical: spacing.md + 2, borderRadius: radius.md },
+  primaryBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, flexGrow: 1,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.md + 2, borderRadius: radius.pill,
+  },
+  primaryBtnGhost: { backgroundColor: "#fff", borderWidth: 1.5, borderColor: colors.brand },
   primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
   footer: {
-    flexDirection: "row", gap: spacing.sm, padding: spacing.md, backgroundColor: colors.card,
+    backgroundColor: colors.card,
     borderTopWidth: 1, borderTopColor: colors.border,
   },
-  footerBtn: {
-    flex: 1, paddingVertical: spacing.md, borderRadius: radius.md, alignItems: "center",
+  footerInner: { flexDirection: "row", gap: spacing.sm, padding: spacing.md },
+  footerGhost: {
+    flex: 1, paddingVertical: spacing.md, borderRadius: radius.pill, alignItems: "center",
+    flexDirection: "row", justifyContent: "center",
+    backgroundColor: "#fff", borderWidth: 1, borderColor: colors.border,
+  },
+  footerPrimary: {
+    flex: 1, paddingVertical: spacing.md, borderRadius: radius.pill, alignItems: "center",
     flexDirection: "row", justifyContent: "center", gap: 6,
+    backgroundColor: colors.brand,
   },
 });

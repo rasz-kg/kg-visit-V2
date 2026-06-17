@@ -26,7 +26,7 @@ function Step({ n, title, hint, children }: { n: string; title: string; hint: st
           <Text style={styles.stepHint}>{hint}</Text>
         </View>
       </View>
-      <View style={{ marginTop: spacing.md }}>{children}</View>
+      <View style={{ marginTop: spacing.md + 2 }}>{children}</View>
     </View>
   );
 }
@@ -78,14 +78,14 @@ export default function NuevaVisitaScreen() {
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={() => router.back()} style={styles.back}><ChevronLeft color="#fff" size={26} /></Pressable>
-        <View>
+        <Pressable onPress={() => router.back()} style={styles.back}><ChevronLeft color={colors.text} size={26} /></Pressable>
+        <View style={{ flex: 1 }}>
           <Text style={styles.brand}>Nueva visita</Text>
           <Text style={styles.brandHint}>Configura los datos y genera el pase.</Text>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl * 2 }}>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 3 }}>
         <Step n="01" title="Fecha y hora" hint="Cuándo estará disponible la visita">
           <View style={styles.row}>
             {WHENS.map((w) => <Chip key={w.key} label={w.label} active={when === w.key} onPress={() => setWhen(w.key)} />)}
@@ -123,7 +123,7 @@ export default function NuevaVisitaScreen() {
             placeholder="Asunto / motivo (ej. Visita familiar)" placeholderTextColor={colors.textFaint} />
         </Step>
 
-        <Pressable style={[styles.submit, busy && { opacity: 0.6 }]} onPress={submit} disabled={busy}>
+        <Pressable style={({ pressed }) => [styles.submit, busy && { opacity: 0.6 }, pressed && { transform: [{ scale: 0.98 }] }]} onPress={submit} disabled={busy}>
           {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Crear visita</Text>}
         </Pressable>
       </ScrollView>
@@ -133,23 +133,60 @@ export default function NuevaVisitaScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  header: { backgroundColor: colors.ink, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  header: {
+    backgroundColor: colors.bg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
   back: { padding: 4 },
-  brand: { color: "#fff", fontSize: 22, fontWeight: "800" },
-  brandHint: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
-  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
+  brand: { color: colors.text, fontSize: 22, fontWeight: "800" },
+  brandHint: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg + 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   stepHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  stepNum: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
-  stepNumText: { color: colors.brandDark, fontWeight: "800" },
+  stepNum: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: colors.brand,
+    alignItems: "center", justifyContent: "center",
+    shadowColor: colors.brand, shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  stepNumText: { color: "#fff", fontWeight: "800", fontSize: 13, letterSpacing: 0.5 },
   stepTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
-  stepHint: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  stepHint: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   row: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  chip: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 8, backgroundColor: colors.bg },
+  chip: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill,
+    paddingHorizontal: spacing.md + 2, paddingVertical: 9,
+    backgroundColor: colors.bg,
+  },
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
   chipText: { color: colors.text, fontSize: 13, fontWeight: "600" },
   chipTextActive: { color: "#fff" },
-  input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md, fontSize: 15, color: colors.text, backgroundColor: colors.bg },
+  input: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
+    paddingHorizontal: spacing.md + 2, paddingVertical: spacing.md,
+    fontSize: 15, color: colors.text, backgroundColor: colors.bg,
+  },
   faint: { color: colors.textFaint, fontSize: 13 },
-  submit: { backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: spacing.md + 2, alignItems: "center", marginTop: spacing.sm },
-  submitText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  submit: {
+    backgroundColor: colors.brand,
+    borderRadius: radius.pill,
+    paddingVertical: spacing.md + 4,
+    alignItems: "center",
+    marginTop: spacing.sm,
+    shadowColor: colors.brand, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  submitText: { color: "#fff", fontWeight: "800", fontSize: 16, letterSpacing: 0.3 },
 });

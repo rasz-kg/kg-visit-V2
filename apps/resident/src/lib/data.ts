@@ -547,3 +547,272 @@ export async function updateMyProfile(userId: string, p: ProfileUpdate): Promise
     .eq("id", userId);
   return error ? { error: error.message } : {};
 }
+
+/* --------------------------- Avatar -------------------------------------- */
+export async function updateAvatar(userId: string, url: string | null): Promise<{ error?: string }> {
+  const { error } = await supabase
+    .from("users")
+    .update({ avatar: url } as never)
+    .eq("id", userId);
+  return error ? { error: error.message } : {};
+}
+
+/* --------------------------- Borrar cuenta (soft) ------------------------ */
+export async function disableMyAccount(userId: string): Promise<{ error?: string }> {
+  const { error } = await supabase
+    .from("users")
+    .update({ status: false } as never)
+    .eq("id", userId);
+  return error ? { error: error.message } : {};
+}
+
+/* ----------------------- Familiares / Departamento ----------------------- */
+export interface FamilyMember {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  representative: boolean;
+  status: boolean;
+}
+
+interface FamilyRow {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  representative: boolean | null;
+  status: boolean | null;
+}
+
+export async function getFamilyMembers(
+  houseId: string | null,
+  excludeUserId: string | null,
+): Promise<FamilyMember[]> {
+  if (!houseId) return [];
+  let q = supabase
+    .from("users")
+    .select("id,name,email,phone,representative,status")
+    .eq("house_id", houseId)
+    .eq("status", true)
+    .order("name");
+  if (excludeUserId) q = q.neq("id", excludeUserId);
+  const res = await q;
+  if (res.error) return [];
+  const rows = (res.data ?? []) as unknown as FamilyRow[];
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    email: r.email,
+    phone: r.phone,
+    representative: !!r.representative,
+    status: !!r.status,
+  }));
+}
+
+export interface FamilyMemberInput {
+  name: string;
+  email?: string;
+  phone?: string;
+  representative: boolean;
+}
+
+// Cache del rol 'resident' para evitar lookups repetidos.
+let cachedResidentRolId: string | null = null;
+async function getResidentRolId(): Promise<string | null> {
+  if (cachedResidentRolId) return cachedResidentRolId;
+  const res = await supabase
+    .from("rols")
+    .select("id")
+    .eq("name", "resident")
+    .eq("status", true)
+    .limit(1)
+    .maybeSingle();
+  if (res.error || !res.data) return null;
+  const row = res.data as { id: string };
+  cachedResidentRolId = row.id;
+  return row.id;
+}
+
+export async function createFamilyMember(
+  p: FamilyMemberInput,
+  ctx: { residentialId: string | null; houseId: string | null },
+): Promise<{ error?: string }> {
+  if (!ctx.residentialId || !ctx.houseId) return { error: "Sin domicilio asignado." };
+  if (!p.name.trim()) return { error: "El nombre es obligatorio." };
+  const rolId = await getResidentRolId();
+  if (!rolId) return { error: "No se encontró el rol 'resident'." };
+  const { error } = await supabase.from("users").insert({
+    residential_id: ctx.residentialId,
+    house_id: ctx.houseId,
+    rol_id: rolId,
+    name: p.name.trim(),
+    email: p.email?.trim() || null,
+    phone: p.phone?.trim() || null,
+    representative: p.representative,
+    status: true,
+    validated: false,
+  } as never);
+  return error ? { error: error.message } : {};
+}
+
+export async function updateFamilyMember(
+  id: string,
+  p: FamilyMemberInput,
+): Promise<{ error?: string }> {
+  if (!p.name.trim()) return { error: "El nombre es obligatorio." };
+  const { error } = await supabase
+    .from("users")
+    .update({
+      name: p.name.trim(),
+      email: p.email?.trim() || null,
+      phone: p.phone?.trim() || null,
+      representative: p.representative,
+    } as never)
+    .eq("id", id);
+  return error ? { error: error.message } : {};
+}
+
+export async function disableFamilyMember(id: string): Promise<{ error?: string }> {
+  const { error } = await supabase
+    .from("users")
+    .update({ status: false } as never)
+    .eq("id", id);
+  return error ? { error: error.message } : {};
+}
+
+/* --------------------------------- Eventos ------------------------------- */
+export interface EventItem {
+  id: string;
+  name: string;
+  folio: string | null;
+  dueDate: string | null;
+  finishDate: string | null;
+  open: boolean;
+  cars: number | null;
+  spaceName: string | null;
+}
+
+export async function getEvents(userId: string | null): Promise<EventItem[]> {
+  if (!userId) return [];
+  const res = await supabase
+    .from("events")
+    .select("id,name,folio,due_date,finish_date,open,cars,spaces(name)")
+    .eq("user_id", userId)
+    .order("due_date", { ascending: false, nullsFirst: false });
+  if (res.error) return [];
+  const rows = (res.data ?? []) as unknown as {
+    id: string; name: string; folio: string | null;
+    due_date: string | null; finish_date: string | null;
+    open: boolean | null; cars: number | null;
+    spaces: { name?: string | null } | null;
+  }[];
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    folio: r.folio,
+    dueDate: r.due_date,
+    finishDate: r.finish_date,
+    open: !!r.open,
+    cars: r.cars,
+    spaceName: r.spaces?.name ?? null,
+  }));
+}
+
+export interface EventDetail extends EventItem {
+  qrUrl: string | null;
+  createdAt: string | null;
+}
+
+export async function getEventDetail(id: string): Promise<EventDetail | null> {
+  const res = await supabase
+    .from("events")
+    .select("id,name,folio,due_date,finish_date,open,cars,qr_url,created_at,spaces(name)")
+    .eq("id", id)
+    .maybeSingle();
+  if (res.error || !res.data) return null;
+  const r = res.data as unknown as {
+    id: string; name: string; folio: string | null;
+    due_date: string | null; finish_date: string | null;
+    open: boolean | null; cars: number | null;
+    qr_url: string | null; created_at: string | null;
+    spaces: { name?: string | null } | null;
+  };
+  return {
+    id: r.id,
+    name: r.name,
+    folio: r.folio,
+    dueDate: r.due_date,
+    finishDate: r.finish_date,
+    open: !!r.open,
+    cars: r.cars,
+    qrUrl: r.qr_url,
+    createdAt: r.created_at,
+    spaceName: r.spaces?.name ?? null,
+  };
+}
+
+export interface EventInput {
+  name: string;
+  dueDate: string; // ISO o YYYY-MM-DDTHH:MM
+  open: boolean;
+  cars?: number | null;
+  spaceId?: string | null;
+}
+
+export async function createEvent(
+  p: EventInput,
+  ctx: { residentialId: string | null; houseId: string | null; userId: string },
+): Promise<{ error?: string; id?: string }> {
+  if (!ctx.residentialId) return { error: "Sin residencial asignado." };
+  if (!p.name.trim()) return { error: "El nombre es obligatorio." };
+  if (!p.dueDate.trim()) return { error: "Indica la fecha." };
+  const res = await supabase.from("events").insert({
+    residential_id: ctx.residentialId,
+    house_id: ctx.houseId,
+    user_id: ctx.userId,
+    name: p.name.trim(),
+    due_date: p.dueDate,
+    open: p.open,
+    cars: p.cars ?? null,
+    space_id: p.spaceId || null,
+  } as never).select("id").maybeSingle();
+  if (res.error) return { error: res.error.message };
+  const row = res.data as { id: string } | null;
+  return { id: row?.id };
+}
+
+export interface EventGuest {
+  id: string;
+  name: string;
+  folio: string | null;
+}
+
+export async function getEventGuests(eventId: string): Promise<EventGuest[]> {
+  const res = await supabase
+    .from("event_visitors")
+    .select("id,name,folio,visitors(name)")
+    .eq("event_id", eventId);
+  if (res.error) return [];
+  const rows = (res.data ?? []) as unknown as {
+    id: string; name: string | null; folio: string | null;
+    visitors: { name?: string | null } | null;
+  }[];
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name || r.visitors?.name || "—",
+    folio: r.folio,
+  }));
+}
+
+export async function addEventGuest(
+  eventId: string,
+  name: string,
+): Promise<{ error?: string }> {
+  if (!name.trim()) return { error: "El nombre es obligatorio." };
+  const { error } = await supabase.from("event_visitors").insert({
+    event_id: eventId,
+    name: name.trim(),
+  } as never);
+  return error ? { error: error.message } : {};
+}
