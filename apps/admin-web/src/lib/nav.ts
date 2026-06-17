@@ -1,7 +1,8 @@
 import {
   LayoutDashboard, DoorOpen, Building2, Users, Car, MapPinned, ShieldCheck, Wrench,
   Megaphone, BarChart3, MessageSquareWarning, Ban, Settings, Truck, Building, Video,
-  Tag, Tags, AlertTriangle, MapPin, Smartphone, type LucideIcon,
+  Tag, Tags, AlertTriangle, MapPin, Smartphone, CalendarDays, BookOpenCheck, UserCog,
+  MessageSquare, type LucideIcon,
 } from "lucide-react";
 
 export interface NavItem {
@@ -38,6 +39,9 @@ export const NAV: NavGroup[] = [
     items: [
       { label: "Avisos", href: "/avisos", icon: Megaphone },
       { label: "Sugerencias y quejas", href: "/sugerencias", icon: MessageSquareWarning },
+      { label: "Respuestas de tickets", href: "/m/respuestas-ticket", icon: MessageSquare },
+      { label: "Eventos", href: "/m/eventos", icon: CalendarDays },
+      { label: "Reservaciones", href: "/m/reservaciones", icon: BookOpenCheck },
       { label: "Amenidades", href: "/m/espacios", icon: MapPin },
       { label: "Categorías de tickets", href: "/m/categorias-ticket", icon: Tags },
       { label: "Incidentes", href: "/m/incidentes", icon: AlertTriangle },
@@ -59,6 +63,7 @@ export const NAV: NavGroup[] = [
       { label: "Sedes", href: "/sedes", icon: MapPinned },
       { label: "Casetas", href: "/m/casetas", icon: ShieldCheck },
       { label: "Cámaras IP", href: "/m/camaras", icon: Video },
+      { label: "Roles", href: "/m/roles", icon: UserCog },
       { label: "Configurar residencial", href: "/configuracion", icon: Settings },
     ],
   },

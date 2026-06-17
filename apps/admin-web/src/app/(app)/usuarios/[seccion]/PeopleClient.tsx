@@ -98,22 +98,42 @@ export function PeopleClient({ people, section }: { people: Person[]; section: S
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {list.map((p) => (
             <Card key={p.id} className="flex flex-col">
-              <div className="flex items-center gap-3 p-5">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-50 text-sm font-bold text-brand-600">
-                  {initials(p.name) || "?"}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-slate-900">{p.name}</p>
-                  <p className="truncate text-xs text-slate-400">
-                    {isVisitor ? (p.secondary || "Sin empresa") : (p.secondary ? `@${p.secondary}` : "Sin usuario")}
-                  </p>
-                </div>
-                <Badge tone={p.status ? "green" : "slate"}>{p.status ? "Activo" : "Inactivo"}</Badge>
-              </div>
-              <div className="flex items-center gap-2 px-5 pb-4 text-xs text-slate-500">
-                {isVisitor ? <Building2 className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}
-                <span className="truncate">{p.contact || (isVisitor ? "Sin teléfono" : "Sin email")}</span>
-              </div>
+              {/* Sólo usuarios "users" tienen detalle; visitantes se editan desde el modal. */}
+              {isVisitor ? (
+                <>
+                  <div className="flex items-center gap-3 p-5">
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-50 text-sm font-bold text-brand-600">
+                      {initials(p.name) || "?"}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-slate-900">{p.name}</p>
+                      <p className="truncate text-xs text-slate-400">{p.secondary || "Sin empresa"}</p>
+                    </div>
+                    <Badge tone={p.status ? "green" : "slate"}>{p.status ? "Activo" : "Inactivo"}</Badge>
+                  </div>
+                  <div className="flex items-center gap-2 px-5 pb-4 text-xs text-slate-500">
+                    <Building2 className="h-3.5 w-3.5" />
+                    <span className="truncate">{p.contact || "Sin teléfono"}</span>
+                  </div>
+                </>
+              ) : (
+                <Link href={`/usuarios/${section.key}/${p.id}`} className="block hover:bg-slate-50/40">
+                  <div className="flex items-center gap-3 p-5">
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-50 text-sm font-bold text-brand-600">
+                      {initials(p.name) || "?"}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-slate-900">{p.name}</p>
+                      <p className="truncate text-xs text-slate-400">{p.secondary ? `@${p.secondary}` : "Sin usuario"}</p>
+                    </div>
+                    <Badge tone={p.status ? "green" : "slate"}>{p.status ? "Activo" : "Inactivo"}</Badge>
+                  </div>
+                  <div className="flex items-center gap-2 px-5 pb-4 text-xs text-slate-500">
+                    <Mail className="h-3.5 w-3.5" />
+                    <span className="truncate">{p.contact || "Sin email"}</span>
+                  </div>
+                </Link>
+              )}
               <div className="mt-auto flex items-center gap-2 border-t border-slate-100 px-4 py-3">
                 <Button variant="outline" className="px-2.5 py-1.5" onClick={() => openEdit(p)} title="Editar">
                   <Pencil className="h-4 w-4" />

@@ -43,7 +43,7 @@ export default function VisitasScreen() {
           renderItem={({ item }) => {
             const st = VISIT_STATUS[item.status] ?? { label: item.status, color: colors.textMuted };
             return (
-              <View style={styles.card}>
+              <Pressable style={styles.card} onPress={() => router.push(`/visitas/${item.id}`)}>
                 <View style={styles.cardTop}>
                   <Text style={styles.subject} numberOfLines={1}>{item.subject || item.who}</Text>
                   <View style={[styles.badge, { backgroundColor: st.color + "22" }]}>
@@ -52,7 +52,7 @@ export default function VisitasScreen() {
                 </View>
                 <Text style={styles.meta}>{item.who} · Folio {item.folio ?? "—"}</Text>
                 <Text style={styles.metaFaint}>Llegada: {formatDate(item.arriveDate)}</Text>
-              </View>
+              </Pressable>
             );
           }}
         />

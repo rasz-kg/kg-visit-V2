@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Plus, Footprints, QrCode, Package, Flag, Search, Filter, Loader2,
@@ -157,9 +158,9 @@ function VisitRowCard({ v }: { v: Visit }) {
   return (
     <Card className="p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
+        <Link href={`/visitas/${v.id}`} className="min-w-0 flex-1 cursor-pointer rounded-md -m-1 p-1 hover:bg-slate-50/60">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-slate-900">{v.title}</span>
+            <span className="font-semibold text-slate-900 hover:text-brand-600">{v.title}</span>
             <Badge tone={STATUS_TONE[v.status]}>{STATUS_LABEL[v.status]}</Badge>
             <Badge tone="violet">{KIND_LABEL[v.kind]}</Badge>
             {v.createdByGuard && <Badge tone="slate">Creada por guardia</Badge>}
@@ -172,7 +173,7 @@ function VisitRowCard({ v }: { v: Visit }) {
             Llegada: {formatDateTime(v.arriveDate)} · Salida: {formatDateTime(v.leaveDate)}
           </p>
           {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-        </div>
+        </Link>
         <div className="flex flex-wrap gap-2">
           {v.status === "pending" && (
             <>

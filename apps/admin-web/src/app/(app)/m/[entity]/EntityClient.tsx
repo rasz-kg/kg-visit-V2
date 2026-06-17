@@ -7,6 +7,7 @@ import { Badge, Button, Card, PageHeader } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import type { EntityDef } from "@/lib/entities";
+import type { FkOption } from "@/lib/crud";
 import { saveEntity, toggleEntity, deleteEntity } from "./actions";
 
 type ClientDef = Omit<EntityDef, "icon">;
@@ -21,7 +22,15 @@ function cell(def: ClientDef, row: Row, key: string) {
   return <span className="text-slate-700">{v == null || v === "" ? "—" : String(v)}</span>;
 }
 
-export function EntityClient({ def, rows }: { def: ClientDef; rows: Row[] }) {
+export function EntityClient({
+  def,
+  rows,
+  fkOptions,
+}: {
+  def: ClientDef;
+  rows: Row[];
+  fkOptions?: Record<string, FkOption[]>;
+}) {
   const router = useRouter();
   const [q, setQ] = React.useState("");
   const [open, setOpen] = React.useState(false);
@@ -124,6 +133,21 @@ export function EntityClient({ def, rows }: { def: ClientDef; rows: Row[] }) {
                     <option value="">—</option>
                     {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
+                </div>
+              );
+            }
+            if (f.type === "fk") {
+              const opts = fkOptions?.[f.key] ?? [];
+              return (
+                <div key={f.key}>{label}
+                  <select name={f.key} defaultValue={dv != null ? String(dv) : ""}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-brand-300 focus:bg-white">
+                    <option value="">{f.required ? `— Selecciona ${f.label.toLowerCase()} —` : "— Sin asignar —"}</option>
+                    {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                  {opts.length === 0 && (
+                    <p className="mt-1 text-xs text-slate-400">No hay opciones disponibles. Crea registros en su módulo primero.</p>
+                  )}
                 </div>
               );
             }

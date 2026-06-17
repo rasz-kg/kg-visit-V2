@@ -5,13 +5,13 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Search, QrCode, ScanLine, Menu, Check, X, LogIn, LogOut, Flag, type LucideIcon } from "lucide-react-native";
+import { Search, QrCode, ScanLine, Menu, Check, X, LogIn, LogOut, Flag, Plus, type LucideIcon } from "lucide-react-native";
 import { useBooth } from "@/lib/booth";
 import {
   getTodayVisits, formatDate, authorizeVisit, denyVisit, giveAccess, leaveVisit, reportVisit,
   type VisitItem,
 } from "@/lib/data";
-import { colors, radius, spacing, VISIT_STATUS, VISIT_KIND } from "@/lib/theme";
+import { colors, radius, spacing, useIsTablet, VISIT_STATUS, VISIT_KIND } from "@/lib/theme";
 
 // Opciones de los filtros (espejo del enum de `visits`).
 const KIND_FILTERS = ["visitor", "service", "employee", "resident", "provider", "event"] as const;
@@ -21,6 +21,7 @@ export default function VisitasScreen() {
   const { booth } = useBooth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const isTablet = useIsTablet();
 
   const [search, setSearch] = React.useState("");
   const [kind, setKind] = React.useState<string | null>(null);
@@ -52,8 +53,10 @@ export default function VisitasScreen() {
     startTransition(() => { load(); });
   }
 
-  function qrStub(modo: string) {
-    Alert.alert("Escaneo por cámara", `${modo} se habilita desde la cámara del dispositivo (próximamente).`);
+  // QR Auto = vehicular, QR Caminando = peatonal. La pantalla /qr permite
+  // captura manual de folio (la cámara queda como stub honesto por ahora).
+  function openQr(modo: "auto" | "walking") {
+    router.push(`/(app)/qr?modo=${modo}`);
   }
 
   return (
@@ -85,15 +88,22 @@ export default function VisitasScreen() {
           />
         </View>
 
-        {/* Botones QR (stubs) */}
+        {/* Botones QR + Nueva visita */}
         <View style={styles.qrRow}>
-          <Pressable style={styles.qrBtn} onPress={() => qrStub("QR Auto")}>
+          <Pressable style={styles.qrBtn} onPress={() => openQr("auto")}>
             <QrCode color="#fff" size={16} />
             <Text style={styles.qrText}>QR Auto</Text>
           </Pressable>
-          <Pressable style={styles.qrBtn} onPress={() => qrStub("QR Caminando")}>
+          <Pressable style={styles.qrBtn} onPress={() => openQr("walking")}>
             <ScanLine color="#fff" size={16} />
             <Text style={styles.qrText}>QR Caminando</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.qrBtn, { backgroundColor: colors.brand }]}
+            onPress={() => router.push("/(app)/nueva-visita")}
+          >
+            <Plus color="#fff" size={16} />
+            <Text style={styles.qrText}>Nueva visita</Text>
           </Pressable>
         </View>
       </View>
@@ -116,6 +126,10 @@ export default function VisitasScreen() {
         <FlatList
           data={visits}
           keyExtractor={(v) => v.id}
+          numColumns={isTablet ? 2 : 1}
+          // key forza el re-mount al cambiar # de columnas (FlatList lo exige).
+          key={isTablet ? "grid-2" : "list-1"}
+          columnWrapperStyle={isTablet ? { gap: spacing.md } : undefined}
           contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
           ListEmptyComponent={<Text style={styles.empty}>No hay visitas para los filtros actuales.</Text>}
@@ -123,6 +137,8 @@ export default function VisitasScreen() {
             <VisitRow
               item={item}
               busy={pending || actingId === item.id}
+              tablet={isTablet}
+              onOpen={() => router.push(`/(app)/visitas/${item.id}`)}
               onAuthorize={() => runAction(item.id, () => authorizeVisit(item.id))}
               onDeny={() => runAction(item.id, () => denyVisit(item.id))}
               onAccess={() => runAction(item.id, () => giveAccess(item.id))}
@@ -161,10 +177,12 @@ function FilterGroup({
 }
 
 function VisitRow({
-  item, busy, onAuthorize, onDeny, onAccess, onLeave, onReport,
+  item, busy, tablet, onOpen, onAuthorize, onDeny, onAccess, onLeave, onReport,
 }: {
   item: VisitItem;
   busy: boolean;
+  tablet: boolean;
+  onOpen: () => void;
   onAuthorize: () => void;
   onDeny: () => void;
   onAccess: () => void;
@@ -173,8 +191,9 @@ function VisitRow({
 }) {
   const st = VISIT_STATUS[item.status] ?? { label: item.status, color: colors.textMuted };
   const kindLabel = VISIT_KIND[item.kind] ?? item.kind;
+  // En tablet cada tarjeta ocupa la mitad del ancho del grid (2 columnas).
   return (
-    <View style={styles.card}>
+    <Pressable style={[styles.card, tablet && { flex: 1 }]} onPress={onOpen}>
       <View style={styles.cardTop}>
         <Text style={styles.subject} numberOfLines={1}>{item.subject || item.who}</Text>
         <View style={[styles.badge, { backgroundColor: st.color + "22" }]}>
@@ -185,7 +204,7 @@ function VisitRow({
       <Text style={styles.metaFaint}>{item.houseAddress ?? "Sin domicilio"}{item.plate ? ` · Placa ${item.plate}` : ""}</Text>
       <Text style={styles.metaFaint}>Llegada: {formatDate(item.arriveDate)}</Text>
 
-      {/* Acciones según estatus */}
+      {/* Acciones según estatus. Cada botón detiene la propagación para no abrir el detalle. */}
       <View style={styles.actions}>
         {item.status === "pending" && (
           <>
@@ -201,7 +220,7 @@ function VisitRow({
         )}
         <ActionBtn icon={Flag} label="Reportar" tone="muted" busy={busy} onPress={onReport} />
       </View>
-    </View>
+    </Pressable>
   );
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Phone, Home, Hammer, Trees, Building, Pencil, Trash2, Search, Loader2 } from "lucide-react";
 import { Badge, Button, Card, CardBody, PageHeader } from "@/components/ui";
@@ -74,21 +75,23 @@ export function DepartamentosClient({ houses }: { houses: House[] }) {
           const k = KIND[h.kind]; const Icon = k.icon;
           return (
             <Card key={h.id}>
-              <CardBody>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand-50 text-brand-600"><Icon className="h-5 w-5" /></div>
-                    <div><p className="font-semibold text-slate-900">{h.address}</p><p className="text-xs text-slate-400">{h.cluster ? `Cluster ${h.cluster} · ` : ""}{h.residents} residentes</p></div>
+              <Link href={`/departamentos/${h.id}`} className="block hover:bg-slate-50/40">
+                <CardBody>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand-50 text-brand-600"><Icon className="h-5 w-5" /></div>
+                      <div><p className="font-semibold text-slate-900">{h.address}</p><p className="text-xs text-slate-400">{h.cluster ? `Cluster ${h.cluster} · ` : ""}{h.residents} residentes</p></div>
+                    </div>
+                    <Badge tone={k.tone}>{k.label}</Badge>
                   </div>
-                  <Badge tone={k.tone}>{k.label}</Badge>
-                </div>
-                <dl className="mt-4 space-y-2 text-sm">
-                  <div className="flex items-center justify-between"><dt className="flex items-center gap-1.5 text-slate-500"><Phone className="h-3.5 w-3.5" /> Teléfono</dt><dd className="text-slate-700">{h.phone ?? "Sin definir"}</dd></div>
-                  <div className="flex items-center justify-between"><dt className="text-slate-500">Moroso</dt><dd><Badge tone={h.defaulter ? "red" : "green"}>{h.defaulter ? "Sí" : "No"}</Badge></dd></div>
-                  <div className="flex items-center justify-between"><dt className="text-slate-500">Recibiendo visitas</dt><dd><Badge tone={h.receivingVisits ? "green" : "slate"}>{h.receivingVisits ? "Sí" : "No"}</Badge></dd></div>
-                </dl>
-                <p className="mt-3 text-[11px] text-slate-400">Actualizado: {formatDateTime(h.updatedAt)}</p>
-              </CardBody>
+                  <dl className="mt-4 space-y-2 text-sm">
+                    <div className="flex items-center justify-between"><dt className="flex items-center gap-1.5 text-slate-500"><Phone className="h-3.5 w-3.5" /> Teléfono</dt><dd className="text-slate-700">{h.phone ?? "Sin definir"}</dd></div>
+                    <div className="flex items-center justify-between"><dt className="text-slate-500">Moroso</dt><dd><Badge tone={h.defaulter ? "red" : "green"}>{h.defaulter ? "Sí" : "No"}</Badge></dd></div>
+                    <div className="flex items-center justify-between"><dt className="text-slate-500">Recibiendo visitas</dt><dd><Badge tone={h.receivingVisits ? "green" : "slate"}>{h.receivingVisits ? "Sí" : "No"}</Badge></dd></div>
+                  </dl>
+                  <p className="mt-3 text-[11px] text-slate-400">Actualizado: {formatDateTime(h.updatedAt)}</p>
+                </CardBody>
+              </Link>
               <div className="flex items-center gap-2 border-t border-slate-100 px-4 py-3">
                 <Button variant="outline" className="px-2.5 py-1.5" onClick={() => { setEditing(h); setError(null); setOpen(true); }} title="Editar"><Pencil className="h-4 w-4" /></Button>
                 <Button variant="outline" className="px-2.5 py-1.5 text-xs" onClick={() => onToggle(h)} disabled={pending && busyId === h.id} title="Marcar morosidad">

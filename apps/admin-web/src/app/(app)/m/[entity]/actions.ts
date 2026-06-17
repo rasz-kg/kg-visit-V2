@@ -15,6 +15,7 @@ function coerce(field: EntityField, raw: FormDataEntryValue | null): unknown {
     const s = String(raw ?? "").trim();
     return s === "" ? null : Number(s);
   }
+  // FK / select / date / text / textarea / phone: tratar como string (vacío → null).
   const s = String(raw ?? "").trim();
   return s === "" ? null : s;
 }

@@ -417,3 +417,200 @@ export async function getResidentialName(): Promise<string | null> {
     return null;
   }
 }
+
+/* ----------------------------- Detalle de visita ------------------------- */
+export interface VisitDetail extends Visit {
+  subject?: string;
+  details?: string;
+  notes?: string;
+  reason?: string;
+  enterDate?: string;
+  dueDate?: string;
+  privateFlag: boolean;
+  quick: boolean;
+  guardReport: boolean;
+  serviceName?: string;
+  employeeName?: string;
+  providerName?: string;
+  transportName?: string;
+  visitorName?: string;
+  boothName?: string;
+}
+
+interface VisitDetailRow {
+  id: string; folio: string | null; kind: string; status: string;
+  subject: string | null; details: string | null; notes: string | null; reason: string | null;
+  access_kind: string | null; guard_report: boolean; private: boolean; quick: boolean;
+  arrive_date: string | null; enter_date: string | null; leave_date: string | null; due_date: string | null;
+  houses: { address?: string | null } | null;
+  visitors: { name?: string | null } | null;
+  employees: { name?: string | null } | null;
+  services: { name?: string | null } | null;
+  providers: { name?: string | null } | null;
+  transports: { name?: string | null } | null;
+  plates: { number?: string | null } | null;
+  security_booths: { name?: string | null } | null;
+}
+
+export async function getVisitDetail(id: string): Promise<VisitDetail | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const sb = await createClient();
+    const res = await sb
+      .from("visits")
+      .select(
+        "id,folio,kind,status,subject,details,notes,reason,access_kind,guard_report,private,quick,arrive_date,enter_date,leave_date,due_date," +
+          "houses(address),visitors(name),employees(name),services(name),providers(name),transports(name),plates(number),security_booths(name)"
+      )
+      .eq("id", id)
+      .maybeSingle();
+    const v = (res.data ?? null) as unknown as VisitDetailRow | null;
+    if (res.error || !v) return null;
+    const who = v.visitors?.name ?? v.employees?.name ?? v.services?.name ?? v.providers?.name ?? "—";
+    return {
+      id: v.id,
+      folio: v.folio ?? "—",
+      kind: v.kind as VisitKind,
+      status: v.status as VisitStatus,
+      title: v.subject || titleForVisit(v.kind, who),
+      who,
+      houseAddress: v.houses?.address ?? "—",
+      site: v.security_booths?.name ?? undefined,
+      plate: v.plates?.number ?? undefined,
+      arriveDate: v.arrive_date ?? undefined,
+      leaveDate: v.leave_date ?? undefined,
+      enterDate: v.enter_date ?? undefined,
+      dueDate: v.due_date ?? undefined,
+      createdByGuard: v.guard_report ?? false,
+      walking: v.access_kind === "walking",
+      subject: v.subject ?? undefined,
+      details: v.details ?? undefined,
+      notes: v.notes ?? undefined,
+      reason: v.reason ?? undefined,
+      privateFlag: v.private,
+      quick: v.quick,
+      guardReport: v.guard_report,
+      serviceName: v.services?.name ?? undefined,
+      employeeName: v.employees?.name ?? undefined,
+      providerName: v.providers?.name ?? undefined,
+      transportName: v.transports?.name ?? undefined,
+      visitorName: v.visitors?.name ?? undefined,
+      boothName: v.security_booths?.name ?? undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/* ----------------------------- Detalle de domicilio --------------------- */
+export interface HouseDetail extends House {
+  blockQrVisitor: boolean;
+  blockQrEmployee: boolean;
+  blockQrCasual: boolean;
+  visitorLimit: number | null;
+  employeeLimit: number | null;
+  frequentlyLimit: number | null;
+  residentLimit: number | null;
+  residentsList: { id: string; name: string; email?: string; role: string }[];
+  platesList: { id: string; number: string; graylist: boolean }[];
+}
+
+export async function getHouseDetail(id: string): Promise<HouseDetail | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const sb = await createClient();
+    const [houseRes, residentsRes, platesRes] = await Promise.all([
+      sb
+        .from("houses")
+        .select(
+          "id,address,cluster,phone,kind,paid,defaulter,block_qr_visitor,block_qr_employee,block_qr_casual," +
+            "visitor_limit,employee_limit,frequently_limit,resident_limit,status,updated_at"
+        )
+        .eq("id", id)
+        .maybeSingle(),
+      sb.from("users").select("id,name,email,rols(name)").eq("house_id", id).order("name"),
+      sb.from("house_plates").select("id,graylist,plates(id,number)").eq("house_id", id),
+    ]);
+    interface HouseRowDetail extends HouseRow {
+      block_qr_employee: boolean; block_qr_casual: boolean;
+      visitor_limit: number | null; employee_limit: number | null;
+      frequently_limit: number | null; resident_limit: number | null;
+    }
+    const h = (houseRes.data ?? null) as unknown as HouseRowDetail | null;
+    if (houseRes.error || !h) return null;
+    const residents = (residentsRes.data ?? []) as unknown as {
+      id: string; name: string; email: string | null; rols: { name?: string | null } | null;
+    }[];
+    const housePlates = (platesRes.data ?? []) as unknown as {
+      id: string; graylist: boolean; plates: { id?: string; number?: string | null } | null;
+    }[];
+    return {
+      id: h.id,
+      address: h.address,
+      cluster: h.cluster ?? undefined,
+      phone: h.phone ?? undefined,
+      kind: h.kind as HouseKind,
+      paid: h.paid,
+      defaulter: h.defaulter,
+      receivingVisits: !h.block_qr_visitor && h.status,
+      residents: residents.length,
+      updatedAt: h.updated_at,
+      blockQrVisitor: h.block_qr_visitor,
+      blockQrEmployee: h.block_qr_employee,
+      blockQrCasual: h.block_qr_casual,
+      visitorLimit: h.visitor_limit,
+      employeeLimit: h.employee_limit,
+      frequentlyLimit: h.frequently_limit,
+      residentLimit: h.resident_limit,
+      residentsList: residents.map((u) => ({
+        id: u.id, name: u.name, email: u.email ?? undefined, role: u.rols?.name ?? "—",
+      })),
+      platesList: housePlates
+        .filter((p) => p.plates)
+        .map((p) => ({ id: p.plates!.id ?? p.id, number: p.plates!.number ?? "—", graylist: p.graylist })),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/* ----------------------------- Detalle de usuario ----------------------- */
+export interface UserDetail extends User {
+  houseAddress?: string;
+  validated: boolean;
+  createdAt?: string;
+}
+
+export async function getUserDetail(id: string): Promise<UserDetail | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const sb = await createClient();
+    const res = await sb
+      .from("users")
+      .select("id,name,username,email,phone,house_id,status,validated,created_at,rols(name),houses(address)")
+      .eq("id", id)
+      .maybeSingle();
+    interface Row {
+      id: string; name: string; username: string | null; email: string | null;
+      phone: string | null; house_id: string | null; status: boolean; validated: boolean;
+      created_at: string; rols: { name?: string | null } | null; houses: { address?: string | null } | null;
+    }
+    const u = (res.data ?? null) as unknown as Row | null;
+    if (res.error || !u) return null;
+    return {
+      id: u.id,
+      name: u.name,
+      username: u.username ?? undefined,
+      email: u.email ?? undefined,
+      phone: u.phone ?? undefined,
+      role: (u.rols?.name ?? "resident") as Role,
+      houseId: u.house_id ?? undefined,
+      status: u.status,
+      houseAddress: u.houses?.address ?? undefined,
+      validated: u.validated,
+      createdAt: u.created_at,
+    };
+  } catch {
+    return null;
+  }
+}

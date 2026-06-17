@@ -1,3 +1,15 @@
+import { useWindowDimensions } from "react-native";
+
+// Threshold tablet vs phone (MuMu emula tablet 1440×2560 — orientación portrait/landscape).
+const TABLET_MIN_WIDTH = 768;
+
+// Hook util para layout adaptativo: la app de caseta es PRINCIPALMENTE para tablet,
+// pero conviene mantener una versión phone usable. Devuelve `true` en pantallas anchas.
+export function useIsTablet(): boolean {
+  const { width } = useWindowDimensions();
+  return width >= TABLET_MIN_WIDTH;
+}
+
 // Paleta KG-Visit (alineada con el portal admin y la app V1: naranja sobre tinta oscura).
 export const colors = {
   brand: "#f97316", // naranja KG-Visit

@@ -2,9 +2,10 @@ import * as React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { DoorOpen, LogOut, ChevronLeft } from "lucide-react-native";
+import { DoorOpen, LogOut, ChevronLeft, AlertTriangle } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { useBooth } from "@/lib/booth";
+import { countActivePanicAlerts } from "@/lib/data";
 import { colors, radius, spacing } from "@/lib/theme";
 
 export default function MenuScreen() {
@@ -12,6 +13,9 @@ export default function MenuScreen() {
   const { booth, setBooth } = useBooth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const [panicCount, setPanicCount] = React.useState(0);
+
+  React.useEffect(() => { countActivePanicAlerts().then(setPanicCount); }, []);
 
   async function changeBooth() {
     await setBooth(null);
@@ -33,6 +37,16 @@ export default function MenuScreen() {
         <Row label="Residencial" value={profile?.residentialName ?? "—"} />
         <Row label="Caseta actual" value={booth?.name ?? "—"} last />
       </View>
+
+      <Pressable style={styles.item} onPress={() => router.push("/(app)/panico")}>
+        <AlertTriangle color={colors.red} size={20} />
+        <Text style={styles.itemText}>Alertas de pánico</Text>
+        {panicCount > 0 && (
+          <View style={styles.panicBadge}>
+            <Text style={styles.panicBadgeText}>{panicCount}</Text>
+          </View>
+        )}
+      </Pressable>
 
       <Pressable style={styles.item} onPress={changeBooth}>
         <DoorOpen color={colors.brand} size={20} />
@@ -69,7 +83,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
     paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, marginTop: spacing.lg,
   },
-  itemText: { fontSize: 15, fontWeight: "600", color: colors.text },
+  itemText: { fontSize: 15, fontWeight: "600", color: colors.text, flex: 1 },
+  panicBadge: { backgroundColor: colors.red, borderRadius: 999, minWidth: 24, paddingHorizontal: 8, paddingVertical: 2, alignItems: "center" },
+  panicBadgeText: { color: "#fff", fontSize: 12, fontWeight: "800" },
   logout: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, marginTop: spacing.xl, paddingVertical: spacing.md },
   logoutText: { color: colors.red, fontWeight: "700", fontSize: 15 },
 });
