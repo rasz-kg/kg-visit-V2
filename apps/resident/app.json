@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "KG-Visit",
+    "slug": "kg-visit-resident",
+    "scheme": "kgvisit",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#1f2430"
+    },
+    "android": {
+      "package": "com.kgvisit.app.v2"
+    },
+    "ios": {
+      "bundleIdentifier": "com.kgvisit.app.v2",
+      "supportsTablet": true
+    },
+    "plugins": ["expo-router"],
+    "extra": {
+      "supabaseUrl": "https://ljzzuwltgezvwpelavdz.supabase.co",
+      "supabaseAnonKey": "sb_publishable_L8oRM36wh6xG7SHYYERxAQ_aahxXPeG"
+    }
+  }
+}
